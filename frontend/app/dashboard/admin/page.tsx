@@ -51,9 +51,6 @@ export default function AdminDashboard() {
     deleteDocument,
     archiveDocument,
     bulkArchiveByAdministration,
-    lockDocument,
-    unlockDocument,
-    bulkLockByAdministration,
     getDownloadUrl,
   } = useDocumentStore()
   const { users, fetchUsers, updateUserRole, inviteUser } = useUserStore()
@@ -63,7 +60,6 @@ export default function AdminDashboard() {
   // ── Local UI state ──────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All')
-  const [bulkLockAdmin, setBulkLockAdmin] = useState('')
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [viewModalOpen, setViewModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
@@ -251,51 +247,6 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleLock = async (doc: Document) => {
-    const ok = await confirmDialog({
-      title: 'Lock document?',
-      message: `"${doc.title}" will become read-only until unlocked.`,
-      confirmLabel: 'Lock',
-    })
-    if (!ok) return
-    try {
-      await lockDocument(doc.id)
-      toast.success('Document locked')
-    } catch (e: any) {
-      toast.error('Lock failed: ' + e.message)
-    }
-  }
-
-  const handleUnlock = async (doc: Document) => {
-    const ok = await confirmDialog({
-      title: 'Unlock document?',
-      message: `"${doc.title}" will become editable again.`,
-      confirmLabel: 'Unlock',
-    })
-    if (!ok) return
-    try {
-      await unlockDocument(doc.id)
-      toast.success('Document unlocked')
-    } catch (e: any) {
-      toast.error('Unlock failed: ' + e.message)
-    }
-  }
-
-  const handleBulkLock = async (administration: string) => {
-    const ok = await confirmDialog({
-      title: 'Bulk lock?',
-      message: `Lock ALL active documents from administration "${administration}"?`,
-      confirmLabel: 'Lock all',
-    })
-    if (!ok) return
-    try {
-      await bulkLockByAdministration(administration)
-      toast.success(`Locked all active docs from ${administration}`)
-    } catch (e: any) {
-      toast.error('Bulk lock failed: ' + e.message)
-    }
-  }
-
   const handleInviteUser = async () => {
     if (!inviteForm.email || !inviteForm.fullName) {
       toast.error('Email and name are required')
@@ -443,69 +394,17 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {(() => {
-            const lockableCounts = new Map<string, number>()
-            for (const d of activeDocs) {
-              if (!d.is_locked) {
-                lockableCounts.set(d.administration, (lockableCounts.get(d.administration) ?? 0) + 1)
-              }
-            }
-            if (lockableCounts.size === 0) return null
-            const options = [...lockableCounts.entries()].sort(([a], [b]) => a.localeCompare(b))
-            const selectedCount = bulkLockAdmin ? lockableCounts.get(bulkLockAdmin) ?? 0 : 0
-            return (
-              <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                  Bulk Lock by Administration
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                  Marks every active (non-archived) document for the selected administration as read-only.
-                </p>
-                <div className="flex flex-wrap gap-2 items-stretch">
-                  <select
-                    value={bulkLockAdmin}
-                    onChange={e => setBulkLockAdmin(e.target.value)}
-                    className="flex-1 min-w-[220px] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-                  >
-                    <option value="">Select administration…</option>
-                    {options.map(([admin, count]) => (
-                      <option key={admin} value={admin}>
-                        {admin} — {count} lockable
-                      </option>
-                    ))}
-                  </select>
-                  <Button
-                    disabled={!bulkLockAdmin}
-                    onClick={async () => {
-                      const target = bulkLockAdmin
-                      await handleBulkLock(target)
-                      setBulkLockAdmin('')
-                    }}
-                    variant="secondary"
-                  >
-                    {bulkLockAdmin
-                      ? `Lock all ${selectedCount} from ${bulkLockAdmin}`
-                      : 'Lock all'}
-                  </Button>
-                </div>
-              </div>
-            )
-          })()}
-
           <DocumentTable
             documents={filteredActiveDocs}
             canUpload={true}
             canEdit={() => true}
             canDelete={() => true}
             canArchive={true}
-            canLock={() => true}
             onView={handleView}
             onDownload={handleDownload}
             onEdit={handleEditOpen}
             onDelete={handleDelete}
             onArchive={handleArchive}
-            onLock={handleLock}
-            onUnlock={handleUnlock}
             uploaderNames={uploaderNames}
           />
         </div>

@@ -1,7 +1,7 @@
 'use client'
 
 import { Document } from '@/types'
-import { Download, Eye, Edit, Trash2, Archive, FileText, Lock, Unlock } from 'lucide-react'
+import { Download, Eye, Edit, Trash2, Archive, FileText, Lock } from 'lucide-react'
 import EmptyState from '@/components/ui/EmptyState'
 import FileTypeIcon from '@/components/ui/FileTypeIcon'
 
@@ -11,14 +11,11 @@ interface DocumentTableProps {
   canEdit: (doc: Document) => boolean
   canDelete: (doc: Document) => boolean
   canArchive: boolean
-  canLock?: (doc: Document) => boolean
   onView: (doc: Document) => void
   onDownload: (doc: Document) => void
   onEdit?: (doc: Document) => void
   onDelete?: (doc: Document) => void
   onArchive?: (doc: Document) => void
-  onLock?: (doc: Document) => void
-  onUnlock?: (doc: Document) => void
   uploaderNames?: Record<string, string>
 }
 
@@ -27,14 +24,11 @@ export default function DocumentTable({
   canEdit,
   canDelete,
   canArchive,
-  canLock,
   onView,
   onDownload,
   onEdit,
   onDelete,
   onArchive,
-  onLock,
-  onUnlock,
   uploaderNames = {},
 }: DocumentTableProps) {
   if (documents.length === 0) {
@@ -122,24 +116,6 @@ export default function DocumentTable({
                       title="Delete"
                     >
                       <Trash2 size={18} />
-                    </button>
-                  )}
-                  {!doc.is_archived && !doc.is_locked && canLock && canLock(doc) && onLock && (
-                    <button
-                      onClick={() => onLock(doc)}
-                      className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                      title="Lock (read-only)"
-                    >
-                      <Lock size={18} />
-                    </button>
-                  )}
-                  {!doc.is_archived && doc.is_locked && canLock && canLock(doc) && onUnlock && (
-                    <button
-                      onClick={() => onUnlock(doc)}
-                      className="text-emerald-500 hover:text-emerald-700"
-                      title="Unlock"
-                    >
-                      <Unlock size={18} />
                     </button>
                   )}
                   {!doc.is_archived && canArchive && onArchive && (
