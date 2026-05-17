@@ -23,29 +23,36 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
   const router = useRouter()
   const login = useAuthStore((state) => state.login)
   const addLog = useActivityStore((state) => state.addLog)
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
-    const success = login(email, password)
+    setError('')
+    setIsSubmitting(true)
+    try {
+      const success = await login(email, password)
 
-    if (success) {
-      const user = useAuthStore.getState().user
-      if (user) {
-        addLog({ userId: user.id, action: 'login' })
+      if (success) {
+        const user = useAuthStore.getState().user
+        if (user) {
+          addLog({ userId: user.id, action: 'login' })
 
-        const roleRoutes = {
-          chief_minister: '/dashboard/admin',
-          secretary: '/dashboard/secretary',
-          finance_minister: '/dashboard/finance',
-          member: '/dashboard/member',
+          const roleRoutes = {
+            chief_minister: '/dashboard/admin',
+            secretary: '/dashboard/secretary',
+            finance_minister: '/dashboard/finance',
+            member: '/dashboard/member',
+          }
+          router.push(roleRoutes[user.role])
         }
-        router.push(roleRoutes[user.role])
+      } else {
+        setError('Invalid email or password')
       }
-    } else {
-      setError('Invalid email or password')
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -201,7 +208,12 @@ export default function LoginPage() {
               </div>
             )}
 
-            <Button type="submit" variant="primary" className="w-full mt-2">
+            <Button
+              type="submit"
+              variant="primary"
+              isLoading={isSubmitting}
+              className="w-full mt-2"
+            >
               Sign in
               <ArrowRight size={16} />
             </Button>
