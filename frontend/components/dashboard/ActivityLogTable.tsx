@@ -1,6 +1,8 @@
 'use client'
 
+import { Activity } from 'lucide-react'
 import { ActivityLog, User, Document } from '@/types'
+import EmptyState from '@/components/ui/EmptyState'
 
 interface ActivityLogTableProps {
   logs: ActivityLog[]
@@ -65,6 +67,17 @@ export default function ActivityLogTable({
       </div>
 
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
+        {filteredLogs.length === 0 ? (
+          <EmptyState
+            icon={Activity}
+            title="No activity yet"
+            description={
+              filterUser !== 'All' || filterAction !== 'All'
+                ? 'No logs match the current filters. Try clearing them.'
+                : 'Logins, uploads, downloads, and archives will show up here.'
+            }
+          />
+        ) : (
         <table className="w-full">
           <thead>
             <tr className="border-b dark:border-gray-700">
@@ -91,6 +104,7 @@ export default function ActivityLogTable({
             })}
           </tbody>
         </table>
+        )}
       </div>
     </>
   )

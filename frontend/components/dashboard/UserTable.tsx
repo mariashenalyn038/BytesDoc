@@ -1,6 +1,8 @@
 'use client'
 
+import { Users } from 'lucide-react'
 import { User } from '@/types'
+import EmptyState from '@/components/ui/EmptyState'
 
 interface UserTableProps {
   users: User[]
@@ -8,6 +10,18 @@ interface UserTableProps {
 }
 
 export default function UserTable({ users, onRoleChange }: UserTableProps) {
+  if (users.length === 0) {
+    return (
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <EmptyState
+          icon={Users}
+          title="No users yet"
+          description="Invited council members will appear here once they accept."
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow overflow-x-auto">
       <table className="w-full">
