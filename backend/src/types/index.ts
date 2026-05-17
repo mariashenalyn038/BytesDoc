@@ -11,7 +11,7 @@ export interface User {
 export interface Document {
   id: string
   title: string
-  category: 'Proposals' | 'Permits' | 'Budgets' | 'Reports' | 'Financial Records'
+  category: string
   event: string
   administration: string
   uploadedBy: string
@@ -27,6 +27,12 @@ export interface Administration {
   name: string
   startDate: string
   endDate: string | null
+  createdAt: string
+}
+
+export interface Category {
+  id: string
+  name: string
   createdAt: string
 }
 

@@ -6,6 +6,7 @@ import healthRouter from './routes/health'
 import authRouter from './routes/auth'
 import documentsRouter from './routes/documents'
 import administrationsRouter from './routes/administrations'
+import categoriesRouter from './routes/categories'
 import usersRouter from './routes/users'
 import activityLogsRouter from './routes/activitylogs'
 import dashboardRouter from './routes/dashboard'
@@ -25,6 +26,7 @@ app.use('/api/auth', authRouter)
 app.use('/api/documents', documentsRouter)
 app.use('/api/documents', archiveRouter)   // archive sub-routes on /api/documents/:id/archive
 app.use('/api/administrations', administrationsRouter)
+app.use('/api/categories', categoriesRouter)
 app.use('/api/users', usersRouter)
 app.use('/api/activity-logs', activityLogsRouter)
 app.use('/api/dashboard', dashboardRouter)

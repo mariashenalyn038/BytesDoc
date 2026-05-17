@@ -16,7 +16,7 @@ import ArchiveList from '@/components/dashboard/ArchiveList'
 import DocumentViewerModal from '@/components/dashboard/DocumentViewerModal'
 import { FileText, Archive } from 'lucide-react'
 import { Document } from '@/types'
-import { mockCategories } from '@/lib/mockData'
+import { useCategoryStore } from '@/lib/stores/categoryStore'
 import { toast } from '@/lib/stores/toastStore'
 
 export default function MemberDashboard() {
@@ -36,6 +36,9 @@ function MemberDashboardContent() {
   const { documents } = useDocumentStore()
   const { users } = useUserStore()
   const { addLog } = useActivityStore()
+  const { categories, ensureLoaded: ensureCategoriesLoaded } = useCategoryStore()
+
+  useEffect(() => { ensureCategoriesLoaded() }, [ensureCategoriesLoaded])
 
   const [searchTerm, setSearchTerm] = useState('')
   const [viewModalOpen, setViewModalOpen] = useState(false)
@@ -84,9 +87,9 @@ function MemberDashboardContent() {
   const archivedDocs = documents.filter(d => d.is_archived).length
   const recentDocs = documents.filter(d => !d.is_archived).slice(0, 5)
 
-  const categoryData = mockCategories.map(c => ({
-    name: c,
-    value: documents.filter(d => d.category === c && !d.is_archived).length,
+  const categoryData = categories.map(c => ({
+    name: c.name,
+    value: documents.filter(d => d.category === c.name && !d.is_archived).length,
   }))
 
   return (

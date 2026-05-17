@@ -13,16 +13,30 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 },
 })
 
-const CATEGORIES = ['Proposals', 'Permits', 'Budgets', 'Reports', 'Financial Records'] as const
 const FILE_TYPES = ['pdf', 'docx'] as const
 
-const FINANCE_CATEGORIES = new Set<Document['category']>(['Budgets', 'Financial Records'])
-const FINANCE_VISIBLE = new Set<Document['category']>(['Budgets', 'Financial Records', 'Reports'])
+// Role visibility policy for category names. These stay hardcoded because they
+// describe what each role is allowed to handle, not what categories exist.
+// Any category not listed here is treated as non-financial: visible to
+// chief_minister/member/secretary, hidden from finance_minister.
+const FINANCE_CATEGORIES = new Set<string>(['Budgets', 'Financial Records'])
+const FINANCE_VISIBLE = new Set<string>(['Budgets', 'Financial Records', 'Reports'])
+
+async function isKnownCategoryName(name: string): Promise<boolean> {
+  const trimmed = name.trim()
+  if (!trimmed) return false
+  const { data } = await supabase
+    .from('categories')
+    .select('id')
+    .ilike('name', trimmed)
+    .maybeSingle<{ id: string }>()
+  return !!data
+}
 
 interface DocumentRow {
   id: string
   title: string
-  category: Document['category']
+  category: string
   event: string
   administration_id: string
   administrations: { name: string } | null
@@ -63,14 +77,14 @@ export async function findAdministrationIdByName(name: string): Promise<string |
   return data?.id ?? null
 }
 
-function categoryAllowedForRole(role: Role, category: Document['category']): boolean {
+function categoryAllowedForRole(role: Role, category: string): boolean {
   if (role === 'chief_minister' || role === 'member') return true
   if (role === 'secretary') return !FINANCE_CATEGORIES.has(category)
   if (role === 'finance_minister') return FINANCE_VISIBLE.has(category)
   return false
 }
 
-function canUploadCategory(role: Role, category: Document['category']): boolean {
+function canUploadCategory(role: Role, category: string): boolean {
   if (role === 'chief_minister') return true
   if (role === 'secretary') return !FINANCE_CATEGORIES.has(category)
   if (role === 'finance_minister') return FINANCE_VISIBLE.has(category)
@@ -136,8 +150,8 @@ router.post('/', requireAuth, upload.single('file'), async (req: AuthedRequest, 
         .status(400)
         .json({ error: 'title, category, event, administration, fileType are required' })
     }
-    if (!CATEGORIES.includes(category)) {
-      return res.status(400).json({ error: `category must be one of ${CATEGORIES.join(', ')}` })
+    if (typeof category !== 'string' || !(await isKnownCategoryName(category))) {
+      return res.status(400).json({ error: `category "${category}" is not a known category` })
     }
     if (!FILE_TYPES.includes(fileType)) {
       return res.status(400).json({ error: `fileType must be one of ${FILE_TYPES.join(', ')}` })
@@ -231,10 +245,10 @@ router.put('/:id', requireAuth, async (req: AuthedRequest, res, next) => {
       patch.administration_id = adminId
     }
     if (typeof category === 'string') {
-      if (!CATEGORIES.includes(category as Document['category'])) {
-        return res.status(400).json({ error: `category must be one of ${CATEGORIES.join(', ')}` })
+      if (!(await isKnownCategoryName(category))) {
+        return res.status(400).json({ error: `category "${category}" is not a known category` })
       }
-      patch.category = category as Document['category']
+      patch.category = category
     }
 
     if (Object.keys(patch).length === 0) {

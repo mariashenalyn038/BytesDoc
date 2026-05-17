@@ -1,6 +1,6 @@
 'use client'
 
-
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/authStore'
 import { useDocumentStore } from '@/lib/stores/documentStore'
@@ -19,8 +19,10 @@ import UploadModal from '@/components/dashboard/UploadModal'
 import UserTable from '@/components/dashboard/UserTable'
 import ActivityLogTable from '@/components/dashboard/ActivityLogTable'
 import AdministrationsPanel from '@/components/dashboard/AdministrationsPanel'
+import CategoriesPanel from '@/components/dashboard/CategoriesPanel'
 import FileTypeIcon from '@/components/ui/FileTypeIcon'
 import { useAdministrationStore } from '@/lib/stores/administrationStore'
+import { useCategoryStore } from '@/lib/stores/categoryStore'
 import { FileText, Archive, Upload, Users, Activity, Download } from 'lucide-react'
 import { Document, User } from '@/types'
 import { apiGetDashboardStats, DashboardStats } from '@/lib/api'
@@ -33,6 +35,7 @@ const TABS = [
   { name: 'Documents', href: '/dashboard/admin?tab=documents' },
   { name: 'Archive', href: '/dashboard/admin?tab=archive' },
   { name: 'Administrations', href: '/dashboard/admin?tab=administrations' },
+  { name: 'Categories', href: '/dashboard/admin?tab=categories' },
   { name: 'Users', href: '/dashboard/admin?tab=users' },
   { name: 'Activity Logs', href: '/dashboard/admin?tab=logs' },
 ]
@@ -64,6 +67,7 @@ function AdminDashboardContent() {
   const { users, fetchUsers, updateUserRole, inviteUser } = useUserStore()
   const { logs, remoteLogs, fetchLogs, exportLogs } = useActivityStore()
   const { administrations, ensureLoaded: ensureAdminsLoaded } = useAdministrationStore()
+  const { categories, ensureLoaded: ensureCategoriesLoaded } = useCategoryStore()
 
   // ── Local UI state ──────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState('')
@@ -94,6 +98,7 @@ function AdminDashboardContent() {
     fetchDocuments()
     fetchUsers()
     ensureAdminsLoaded()
+    ensureCategoriesLoaded()
   }, [user])
 
   useEffect(() => {
@@ -386,7 +391,7 @@ function AdminDashboardContent() {
               className="flex-1 min-w-[200px] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
             />
             <div className="flex gap-2 flex-wrap">
-              {['All', ...mockCategories].map(cat => (
+              {['All', ...categories.map(c => c.name)].map(cat => (
                 <button
                   key={cat}
                   onClick={() => setCategoryFilter(cat)}
@@ -437,6 +442,9 @@ function AdminDashboardContent() {
       {/* ── ADMINISTRATIONS TAB ──────────────────────────────── */}
       {tab === 'administrations' && <AdministrationsPanel />}
 
+      {/* ── CATEGORIES TAB ───────────────────────────────────── */}
+      {tab === 'categories' && <CategoriesPanel />}
+
       {/* ── USERS TAB ─────────────────────────────────────────── */}
       {tab === 'users' && (
         <div className="space-y-6">
@@ -481,7 +489,7 @@ function AdminDashboardContent() {
         isOpen={uploadModalOpen}
         onClose={() => setUploadModalOpen(false)}
         onUpload={handleUpload}
-        allowedCategories={mockCategories}
+        allowedCategories={categories.map(c => c.name)}
       />
 
       <DocumentViewerModal
@@ -513,7 +521,7 @@ function AdminDashboardContent() {
               onChange={e => setEditForm({ ...editForm, category: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
             >
-              {mockCategories.map(c => <option key={c}>{c}</option>)}
+              {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
           </div>
           <div>
@@ -603,6 +611,7 @@ function tabLabel(tab: string) {
     documents: 'Documents',
     archive: 'Archive',
     administrations: 'Administrations',
+    categories: 'Categories',
     users: 'Users',
     logs: 'Activity Logs',
   }

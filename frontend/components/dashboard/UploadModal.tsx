@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { mockCategories, mockEvents } from '@/lib/mockData'
+import { mockEvents } from '@/lib/mockData'
 import { toast } from '@/lib/stores/toastStore'
 import { useAdministrationStore } from '@/lib/stores/administrationStore'
 
@@ -14,19 +14,19 @@ interface UploadModalProps {
     data: { title: string; category: string; event: string; administration: string },
     file?: File | null
   ) => void | Promise<void>
-  allowedCategories?: string[]
+  allowedCategories: string[]
 }
 
 export default function UploadModal({
   isOpen,
   onClose,
   onUpload,
-  allowedCategories = mockCategories,
+  allowedCategories,
 }: UploadModalProps) {
   const { administrations, ensureLoaded } = useAdministrationStore()
   const [formData, setFormData] = useState({
     title: '',
-    category: allowedCategories[0] || 'Proposals',
+    category: allowedCategories[0] ?? '',
     event: 'Freshmen Orientation',
     administration: '',
   })
@@ -43,9 +43,19 @@ export default function UploadModal({
     }
   }, [administrations, formData.administration])
 
+  useEffect(() => {
+    if (!formData.category && allowedCategories.length > 0) {
+      setFormData(f => ({ ...f, category: allowedCategories[0] }))
+    }
+  }, [allowedCategories, formData.category])
+
   const handleSubmit = async () => {
     if (!formData.title.trim()) {
       toast.error('Please enter a title')
+      return
+    }
+    if (!formData.category) {
+      toast.error('Please select a category')
       return
     }
     if (!formData.administration) {
@@ -57,7 +67,7 @@ export default function UploadModal({
       await onUpload(formData, file)
       setFormData({
         title: '',
-        category: allowedCategories[0] || 'Proposals',
+        category: allowedCategories[0] ?? '',
         event: 'Freshmen Orientation',
         administration: administrations[0]?.name ?? '',
       })
@@ -91,6 +101,9 @@ export default function UploadModal({
             onChange={e => setFormData({ ...formData, category: e.target.value })}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
           >
+            {allowedCategories.length === 0 && (
+              <option value="" disabled>No categories available for your role yet</option>
+            )}
             {allowedCategories.map(cat => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
