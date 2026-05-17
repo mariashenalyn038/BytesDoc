@@ -2,6 +2,7 @@ import { Router } from 'express'
 import { supabase } from '../config/supabase'
 import { requireAuth, requireRole, AuthedRequest } from '../middleware/auth'
 import { logActivity } from '../lib/activityLog'
+import { findAdministrationIdByName } from './documents'
 
 const router = Router()
 
@@ -49,10 +50,15 @@ router.post('/bulk-archive', requireAuth, requireRole('chief_minister'), async (
       return res.status(400).json({ error: 'administration is required' })
     }
 
+    const adminId = await findAdministrationIdByName(administration)
+    if (!adminId) {
+      return res.status(400).json({ error: `administration "${administration}" does not exist` })
+    }
+
     const { data, error } = await supabase
       .from('documents')
       .update({ is_archived: true, is_locked: true })
-      .eq('administration', administration)
+      .eq('administration_id', adminId)
       .eq('is_archived', false)
       .select('id')
 
@@ -149,10 +155,15 @@ router.post('/bulk-lock', requireAuth, requireRole('chief_minister'), async (req
       return res.status(400).json({ error: 'administration is required' })
     }
 
+    const adminId = await findAdministrationIdByName(administration)
+    if (!adminId) {
+      return res.status(400).json({ error: `administration "${administration}" does not exist` })
+    }
+
     const { data, error } = await supabase
       .from('documents')
       .update({ is_locked: true })
-      .eq('administration', administration)
+      .eq('administration_id', adminId)
       .eq('is_archived', false)
       .eq('is_locked', false)
       .select('id')

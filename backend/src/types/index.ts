@@ -11,7 +11,7 @@ export interface User {
 export interface Document {
   id: string
   title: string
-  category: 'Proposals' | 'Permits' | 'Budgets' | 'Reports' | 'Financial Records'
+  category: string
   event: string
   administration: string
   uploadedBy: string
@@ -20,6 +20,26 @@ export interface Document {
   is_archived: boolean
   is_locked: boolean
   fileType: 'pdf' | 'docx'
+}
+
+export interface Administration {
+  id: string
+  name: string
+  startDate: string
+  endDate: string | null
+  createdAt: string
+}
+
+export interface Category {
+  id: string
+  name: string
+  createdAt: string
+}
+
+export interface Event {
+  id: string
+  name: string
+  createdAt: string
 }
 
 export interface ActivityLog {

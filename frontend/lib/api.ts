@@ -238,6 +238,85 @@ export async function apiBulkLock(administration: string) {
   })
 }
 
+// ─── Administrations ────────────────────────────────────────────────────────
+
+export async function apiListAdministrations() {
+  return apiFetch<import('@/types').Administration[]>('/administrations')
+}
+
+export async function apiCreateAdministration(payload: {
+  name: string
+  startDate: string
+  endDate?: string | null
+}) {
+  return apiFetch<import('@/types').Administration>('/administrations', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function apiUpdateAdministration(
+  id: string,
+  payload: { name?: string; startDate?: string; endDate?: string | null },
+) {
+  return apiFetch<import('@/types').Administration>(`/administrations/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function apiDeleteAdministration(id: string) {
+  return apiFetch<void>(`/administrations/${id}`, { method: 'DELETE' })
+}
+
+// ─── Categories ─────────────────────────────────────────────────────────────
+
+export async function apiListCategories() {
+  return apiFetch<import('@/types').Category[]>('/categories')
+}
+
+export async function apiCreateCategory(payload: { name: string }) {
+  return apiFetch<import('@/types').Category>('/categories', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function apiUpdateCategory(id: string, payload: { name: string }) {
+  return apiFetch<import('@/types').Category>(`/categories/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function apiDeleteCategory(id: string) {
+  return apiFetch<void>(`/categories/${id}`, { method: 'DELETE' })
+}
+
+// ─── Events ─────────────────────────────────────────────────────────────────
+
+export async function apiListEvents() {
+  return apiFetch<import('@/types').Event[]>('/events')
+}
+
+export async function apiCreateEvent(payload: { name: string }) {
+  return apiFetch<import('@/types').Event>('/events', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function apiUpdateEvent(id: string, payload: { name: string }) {
+  return apiFetch<import('@/types').Event>(`/events/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function apiDeleteEvent(id: string) {
+  return apiFetch<void>(`/events/${id}`, { method: 'DELETE' })
+}
+
 // ─── Users ──────────────────────────────────────────────────────────────────
 
 export async function apiGetUsers() {

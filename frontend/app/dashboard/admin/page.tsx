@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/authStore'
 import { useDocumentStore } from '@/lib/stores/documentStore'
@@ -18,11 +18,15 @@ import DocumentViewerModal from '@/components/dashboard/DocumentViewerModal'
 import UploadModal from '@/components/dashboard/UploadModal'
 import UserTable from '@/components/dashboard/UserTable'
 import ActivityLogTable from '@/components/dashboard/ActivityLogTable'
+import DocumentSettingsPanel from '@/components/dashboard/DocumentSettingsPanel'
 import FileTypeIcon from '@/components/ui/FileTypeIcon'
+import { useAdministrationStore } from '@/lib/stores/administrationStore'
+import { useCategoryStore } from '@/lib/stores/categoryStore'
+import { useEventStore } from '@/lib/stores/eventStore'
 import { FileText, Archive, Upload, Users, Activity, Download } from 'lucide-react'
 import { Document, User } from '@/types'
 import { apiGetDashboardStats, DashboardStats } from '@/lib/api'
-import { mockCategories, mockAdministrations } from '@/lib/mockData'
+import { mockCategories } from '@/lib/mockData'
 import { toast } from '@/lib/stores/toastStore'
 import { confirmDialog } from '@/lib/stores/confirmStore'
 
@@ -30,11 +34,20 @@ const TABS = [
   { name: 'Dashboard', href: '/dashboard/admin' },
   { name: 'Documents', href: '/dashboard/admin?tab=documents' },
   { name: 'Archive', href: '/dashboard/admin?tab=archive' },
+  { name: 'Document Settings', href: '/dashboard/admin?tab=settings' },
   { name: 'Users', href: '/dashboard/admin?tab=users' },
   { name: 'Activity Logs', href: '/dashboard/admin?tab=logs' },
 ]
 
 export default function AdminDashboard() {
+  return (
+    <Suspense fallback={null}>
+      <AdminDashboardContent />
+    </Suspense>
+  )
+}
+
+function AdminDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tab = searchParams.get('tab') || 'dashboard'
@@ -48,13 +61,13 @@ export default function AdminDashboard() {
     deleteDocument,
     archiveDocument,
     bulkArchiveByAdministration,
-    lockDocument,
-    unlockDocument,
-    bulkLockByAdministration,
     getDownloadUrl,
   } = useDocumentStore()
   const { users, fetchUsers, updateUserRole, inviteUser } = useUserStore()
   const { logs, remoteLogs, fetchLogs, exportLogs } = useActivityStore()
+  const { administrations, ensureLoaded: ensureAdminsLoaded } = useAdministrationStore()
+  const { categories, ensureLoaded: ensureCategoriesLoaded } = useCategoryStore()
+  const { events, ensureLoaded: ensureEventsLoaded } = useEventStore()
 
   // ── Local UI state ──────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState('')
@@ -84,6 +97,9 @@ export default function AdminDashboard() {
     if (!user) return
     fetchDocuments()
     fetchUsers()
+    ensureAdminsLoaded()
+    ensureCategoriesLoaded()
+    ensureEventsLoaded()
   }, [user])
 
   useEffect(() => {
@@ -245,51 +261,6 @@ export default function AdminDashboard() {
     }
   }
 
-  const handleLock = async (doc: Document) => {
-    const ok = await confirmDialog({
-      title: 'Lock document?',
-      message: `"${doc.title}" will become read-only until unlocked.`,
-      confirmLabel: 'Lock',
-    })
-    if (!ok) return
-    try {
-      await lockDocument(doc.id)
-      toast.success('Document locked')
-    } catch (e: any) {
-      toast.error('Lock failed: ' + e.message)
-    }
-  }
-
-  const handleUnlock = async (doc: Document) => {
-    const ok = await confirmDialog({
-      title: 'Unlock document?',
-      message: `"${doc.title}" will become editable again.`,
-      confirmLabel: 'Unlock',
-    })
-    if (!ok) return
-    try {
-      await unlockDocument(doc.id)
-      toast.success('Document unlocked')
-    } catch (e: any) {
-      toast.error('Unlock failed: ' + e.message)
-    }
-  }
-
-  const handleBulkLock = async (administration: string) => {
-    const ok = await confirmDialog({
-      title: 'Bulk lock?',
-      message: `Lock ALL active documents from administration "${administration}"?`,
-      confirmLabel: 'Lock all',
-    })
-    if (!ok) return
-    try {
-      await bulkLockByAdministration(administration)
-      toast.success(`Locked all active docs from ${administration}`)
-    } catch (e: any) {
-      toast.error('Bulk lock failed: ' + e.message)
-    }
-  }
-
   const handleInviteUser = async () => {
     if (!inviteForm.email || !inviteForm.fullName) {
       toast.error('Email and name are required')
@@ -338,15 +309,6 @@ export default function AdminDashboard() {
             <Card title="Archived Documents" value={stats?.archivedDocuments ?? archivedDocs.length} icon={<Archive size={32} />} />
             <Card title="Recent Uploads (7d)" value={stats?.recentUploads ?? 0} icon={<Upload size={32} />} />
           </div>
-
-          {stats?.activitySummary && (
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <Card title="Uploads (7d)" value={stats.activitySummary.uploads} />
-              <Card title="Downloads (7d)" value={stats.activitySummary.downloads} />
-              <Card title="Views (7d)" value={stats.activitySummary.views} />
-              <Card title="Logins (7d)" value={stats.activitySummary.logins} />
-            </div>
-          )}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
@@ -430,7 +392,7 @@ export default function AdminDashboard() {
               className="flex-1 min-w-[200px] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
             />
             <div className="flex gap-2 flex-wrap">
-              {['All', ...mockCategories].map(cat => (
+              {['All', ...categories.map(c => c.name)].map(cat => (
                 <button
                   key={cat}
                   onClick={() => setCategoryFilter(cat)}
@@ -446,46 +408,17 @@ export default function AdminDashboard() {
             </div>
           </div>
 
-          {(() => {
-            const lockableAdmins = [...new Set(activeDocs.filter(d => !d.is_locked).map(d => d.administration))]
-            if (lockableAdmins.length === 0) return null
-            return (
-              <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow">
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">
-                  Bulk Lock by Administration
-                </h3>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
-                  Marks every active (non-archived) document for the selected administration as read-only.
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {lockableAdmins.map(admin => (
-                    <Button
-                      key={admin}
-                      onClick={() => handleBulkLock(admin)}
-                      variant="secondary"
-                    >
-                      Lock All from {admin}
-                    </Button>
-                  ))}
-                </div>
-              </div>
-            )
-          })()}
-
           <DocumentTable
             documents={filteredActiveDocs}
             canUpload={true}
             canEdit={() => true}
             canDelete={() => true}
             canArchive={true}
-            canLock={() => true}
             onView={handleView}
             onDownload={handleDownload}
             onEdit={handleEditOpen}
             onDelete={handleDelete}
             onArchive={handleArchive}
-            onLock={handleLock}
-            onUnlock={handleUnlock}
             uploaderNames={uploaderNames}
           />
         </div>
@@ -497,6 +430,7 @@ export default function AdminDashboard() {
           <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Archive</h1>
           <ArchiveList
             documents={archivedDocs}
+            archivableDocs={activeDocs}
             onView={handleView}
             onDownload={handleDownload}
             canBulkArchive={true}
@@ -505,6 +439,9 @@ export default function AdminDashboard() {
           />
         </div>
       )}
+
+      {/* ── DOCUMENT SETTINGS TAB ────────────────────────────── */}
+      {tab === 'settings' && <DocumentSettingsPanel />}
 
       {/* ── USERS TAB ─────────────────────────────────────────── */}
       {tab === 'users' && (
@@ -550,7 +487,7 @@ export default function AdminDashboard() {
         isOpen={uploadModalOpen}
         onClose={() => setUploadModalOpen(false)}
         onUpload={handleUpload}
-        allowedCategories={mockCategories}
+        allowedCategories={categories.map(c => c.name)}
       />
 
       <DocumentViewerModal
@@ -582,17 +519,18 @@ export default function AdminDashboard() {
               onChange={e => setEditForm({ ...editForm, category: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
             >
-              {mockCategories.map(c => <option key={c}>{c}</option>)}
+              {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Event</label>
-            <input
-              type="text"
+            <select
               value={editForm.event}
               onChange={e => setEditForm({ ...editForm, event: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-            />
+            >
+              {events.map(ev => <option key={ev.id} value={ev.name}>{ev.name}</option>)}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Administration</label>
@@ -601,7 +539,7 @@ export default function AdminDashboard() {
               onChange={e => setEditForm({ ...editForm, administration: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
             >
-              {mockAdministrations.map(a => <option key={a}>{a}</option>)}
+              {administrations.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
             </select>
           </div>
           <div className="flex gap-2">
@@ -671,6 +609,7 @@ function tabLabel(tab: string) {
     dashboard: 'Dashboard',
     documents: 'Documents',
     archive: 'Archive',
+    settings: 'Document Settings',
     users: 'Users',
     logs: 'Activity Logs',
   }

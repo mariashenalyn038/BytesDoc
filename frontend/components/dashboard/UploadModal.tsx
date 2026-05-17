@@ -1,10 +1,11 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Modal from '@/components/ui/Modal'
 import Button from '@/components/ui/Button'
-import { mockCategories, mockEvents, mockAdministrations } from '@/lib/mockData'
 import { toast } from '@/lib/stores/toastStore'
+import { useAdministrationStore } from '@/lib/stores/administrationStore'
+import { useEventStore } from '@/lib/stores/eventStore'
 
 interface UploadModalProps {
   isOpen: boolean
@@ -13,27 +14,66 @@ interface UploadModalProps {
     data: { title: string; category: string; event: string; administration: string },
     file?: File | null
   ) => void | Promise<void>
-  allowedCategories?: string[]
+  allowedCategories: string[]
 }
 
 export default function UploadModal({
   isOpen,
   onClose,
   onUpload,
-  allowedCategories = mockCategories,
+  allowedCategories,
 }: UploadModalProps) {
+  const { administrations, ensureLoaded } = useAdministrationStore()
+  const { events, ensureLoaded: ensureEventsLoaded } = useEventStore()
   const [formData, setFormData] = useState({
     title: '',
-    category: allowedCategories[0] || 'Proposals',
-    event: 'Freshmen Orientation',
-    administration: '2024-2025',
+    category: allowedCategories[0] ?? '',
+    event: '',
+    administration: '',
   })
   const [file, setFile] = useState<File | null>(null)
   const [isUploading, setIsUploading] = useState(false)
 
+  useEffect(() => {
+    if (isOpen) {
+      void ensureLoaded()
+      void ensureEventsLoaded()
+    }
+  }, [isOpen, ensureLoaded, ensureEventsLoaded])
+
+  useEffect(() => {
+    if (!formData.administration && administrations.length > 0) {
+      setFormData(f => ({ ...f, administration: administrations[0].name }))
+    }
+  }, [administrations, formData.administration])
+
+  useEffect(() => {
+    if (!formData.category && allowedCategories.length > 0) {
+      setFormData(f => ({ ...f, category: allowedCategories[0] }))
+    }
+  }, [allowedCategories, formData.category])
+
+  useEffect(() => {
+    if (!formData.event && events.length > 0) {
+      setFormData(f => ({ ...f, event: events[0].name }))
+    }
+  }, [events, formData.event])
+
   const handleSubmit = async () => {
     if (!formData.title.trim()) {
       toast.error('Please enter a title')
+      return
+    }
+    if (!formData.category) {
+      toast.error('Please select a category')
+      return
+    }
+    if (!formData.event) {
+      toast.error('Please select an event')
+      return
+    }
+    if (!formData.administration) {
+      toast.error('Please select an administration')
       return
     }
     setIsUploading(true)
@@ -41,9 +81,9 @@ export default function UploadModal({
       await onUpload(formData, file)
       setFormData({
         title: '',
-        category: allowedCategories[0] || 'Proposals',
-        event: 'Freshmen Orientation',
-        administration: '2024-2025',
+        category: allowedCategories[0] ?? '',
+        event: events[0]?.name ?? '',
+        administration: administrations[0]?.name ?? '',
       })
       setFile(null)
     } finally {
@@ -75,6 +115,9 @@ export default function UploadModal({
             onChange={e => setFormData({ ...formData, category: e.target.value })}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
           >
+            {allowedCategories.length === 0 && (
+              <option value="" disabled>No categories available for your role yet</option>
+            )}
             {allowedCategories.map(cat => (
               <option key={cat} value={cat}>{cat}</option>
             ))}
@@ -89,8 +132,11 @@ export default function UploadModal({
             onChange={e => setFormData({ ...formData, event: e.target.value })}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
           >
-            {mockEvents.map(evt => (
-              <option key={evt} value={evt}>{evt}</option>
+            {events.length === 0 && (
+              <option value="" disabled>No events yet — add one in Document Settings → Events</option>
+            )}
+            {events.map(evt => (
+              <option key={evt.id} value={evt.name}>{evt.name}</option>
             ))}
           </select>
         </div>
@@ -103,8 +149,11 @@ export default function UploadModal({
             onChange={e => setFormData({ ...formData, administration: e.target.value })}
             className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
           >
-            {mockAdministrations.map(adm => (
-              <option key={adm} value={adm}>{adm}</option>
+            {administrations.length === 0 && (
+              <option value="" disabled>No administrations yet — add one in the Administrations tab</option>
+            )}
+            {administrations.map(adm => (
+              <option key={adm.id} value={adm.name}>{adm.name}</option>
             ))}
           </select>
         </div>
