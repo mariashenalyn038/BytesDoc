@@ -304,12 +304,25 @@ function AdminDashboardContent() {
             )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <Card title="Total Documents" value={stats?.totalDocuments ?? documents.length} icon={<FileText size={32} />} />
-            <Card title="Active Documents" value={stats?.activeDocuments ?? activeDocs.length} icon={<FileText size={32} />} />
-            <Card title="Archived Documents" value={stats?.archivedDocuments ?? archivedDocs.length} icon={<Archive size={32} />} />
-            <Card title="Recent Uploads (7d)" value={stats?.recentUploads ?? 0} icon={<Upload size={32} />} />
-          </div>
+          {(() => {
+            const trend = (stats?.uploadsOverTime ?? []).slice(-6).map(d => d.value)
+            const recentDelta = trend.length >= 2 ? trend[trend.length - 1] - trend[trend.length - 2] : undefined
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                <Card title="Total Documents" value={stats?.totalDocuments ?? documents.length} icon={<FileText size={28} />} />
+                <Card title="Active Documents" value={stats?.activeDocuments ?? activeDocs.length} icon={<FileText size={28} />} />
+                <Card title="Archived Documents" value={stats?.archivedDocuments ?? archivedDocs.length} icon={<Archive size={28} />} />
+                <Card
+                  title="Recent Uploads (7d)"
+                  value={stats?.recentUploads ?? 0}
+                  icon={<Upload size={28} />}
+                  sparkline={trend.length > 1 ? trend : undefined}
+                  delta={recentDelta}
+                  deltaLabel="vs prior period"
+                />
+              </div>
+            )
+          })()}
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
