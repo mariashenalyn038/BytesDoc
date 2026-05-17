@@ -18,11 +18,11 @@ import DocumentViewerModal from '@/components/dashboard/DocumentViewerModal'
 import UploadModal from '@/components/dashboard/UploadModal'
 import UserTable from '@/components/dashboard/UserTable'
 import ActivityLogTable from '@/components/dashboard/ActivityLogTable'
-import AdministrationsPanel from '@/components/dashboard/AdministrationsPanel'
-import CategoriesPanel from '@/components/dashboard/CategoriesPanel'
+import DocumentSettingsPanel from '@/components/dashboard/DocumentSettingsPanel'
 import FileTypeIcon from '@/components/ui/FileTypeIcon'
 import { useAdministrationStore } from '@/lib/stores/administrationStore'
 import { useCategoryStore } from '@/lib/stores/categoryStore'
+import { useEventStore } from '@/lib/stores/eventStore'
 import { FileText, Archive, Upload, Users, Activity, Download } from 'lucide-react'
 import { Document, User } from '@/types'
 import { apiGetDashboardStats, DashboardStats } from '@/lib/api'
@@ -34,8 +34,7 @@ const TABS = [
   { name: 'Dashboard', href: '/dashboard/admin' },
   { name: 'Documents', href: '/dashboard/admin?tab=documents' },
   { name: 'Archive', href: '/dashboard/admin?tab=archive' },
-  { name: 'Administrations', href: '/dashboard/admin?tab=administrations' },
-  { name: 'Categories', href: '/dashboard/admin?tab=categories' },
+  { name: 'Document Settings', href: '/dashboard/admin?tab=settings' },
   { name: 'Users', href: '/dashboard/admin?tab=users' },
   { name: 'Activity Logs', href: '/dashboard/admin?tab=logs' },
 ]
@@ -68,6 +67,7 @@ function AdminDashboardContent() {
   const { logs, remoteLogs, fetchLogs, exportLogs } = useActivityStore()
   const { administrations, ensureLoaded: ensureAdminsLoaded } = useAdministrationStore()
   const { categories, ensureLoaded: ensureCategoriesLoaded } = useCategoryStore()
+  const { events, ensureLoaded: ensureEventsLoaded } = useEventStore()
 
   // ── Local UI state ──────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState('')
@@ -99,6 +99,7 @@ function AdminDashboardContent() {
     fetchUsers()
     ensureAdminsLoaded()
     ensureCategoriesLoaded()
+    ensureEventsLoaded()
   }, [user])
 
   useEffect(() => {
@@ -439,11 +440,8 @@ function AdminDashboardContent() {
         </div>
       )}
 
-      {/* ── ADMINISTRATIONS TAB ──────────────────────────────── */}
-      {tab === 'administrations' && <AdministrationsPanel />}
-
-      {/* ── CATEGORIES TAB ───────────────────────────────────── */}
-      {tab === 'categories' && <CategoriesPanel />}
+      {/* ── DOCUMENT SETTINGS TAB ────────────────────────────── */}
+      {tab === 'settings' && <DocumentSettingsPanel />}
 
       {/* ── USERS TAB ─────────────────────────────────────────── */}
       {tab === 'users' && (
@@ -526,12 +524,13 @@ function AdminDashboardContent() {
           </div>
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Event</label>
-            <input
-              type="text"
+            <select
               value={editForm.event}
               onChange={e => setEditForm({ ...editForm, event: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-            />
+            >
+              {events.map(ev => <option key={ev.id} value={ev.name}>{ev.name}</option>)}
+            </select>
           </div>
           <div>
             <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Administration</label>
@@ -610,8 +609,7 @@ function tabLabel(tab: string) {
     dashboard: 'Dashboard',
     documents: 'Documents',
     archive: 'Archive',
-    administrations: 'Administrations',
-    categories: 'Categories',
+    settings: 'Document Settings',
     users: 'Users',
     logs: 'Activity Logs',
   }

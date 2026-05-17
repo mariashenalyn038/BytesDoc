@@ -33,6 +33,17 @@ async function isKnownCategoryName(name: string): Promise<boolean> {
   return !!data
 }
 
+async function isKnownEventName(name: string): Promise<boolean> {
+  const trimmed = name.trim()
+  if (!trimmed) return false
+  const { data } = await supabase
+    .from('events')
+    .select('id')
+    .ilike('name', trimmed)
+    .maybeSingle<{ id: string }>()
+  return !!data
+}
+
 interface DocumentRow {
   id: string
   title: string
@@ -153,6 +164,9 @@ router.post('/', requireAuth, upload.single('file'), async (req: AuthedRequest, 
     if (typeof category !== 'string' || !(await isKnownCategoryName(category))) {
       return res.status(400).json({ error: `category "${category}" is not a known category` })
     }
+    if (typeof event !== 'string' || !(await isKnownEventName(event))) {
+      return res.status(400).json({ error: `event "${event}" is not a known event` })
+    }
     if (!FILE_TYPES.includes(fileType)) {
       return res.status(400).json({ error: `fileType must be one of ${FILE_TYPES.join(', ')}` })
     }
@@ -236,7 +250,12 @@ router.put('/:id', requireAuth, async (req: AuthedRequest, res, next) => {
     const { title, category, event, administration } = req.body ?? {}
     const patch: Record<string, unknown> = {}
     if (typeof title === 'string') patch.title = title
-    if (typeof event === 'string') patch.event = event
+    if (typeof event === 'string') {
+      if (!(await isKnownEventName(event))) {
+        return res.status(400).json({ error: `event "${event}" is not a known event` })
+      }
+      patch.event = event
+    }
     if (typeof administration === 'string') {
       const adminId = await findAdministrationIdByName(administration)
       if (!adminId) {

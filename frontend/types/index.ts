@@ -36,6 +36,12 @@ export interface Category {
   createdAt: string
 }
 
+export interface Event {
+  id: string
+  name: string
+  createdAt: string
+}
+
 export interface ActivityLog {
   id: string
   userId: string

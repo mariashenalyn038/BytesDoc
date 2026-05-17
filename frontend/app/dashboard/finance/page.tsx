@@ -19,10 +19,10 @@ import DocumentViewerModal from '@/components/dashboard/DocumentViewerModal'
 import UploadModal from '@/components/dashboard/UploadModal'
 import { FileText, DollarSign, Upload } from 'lucide-react'
 import { Document } from '@/types'
-import { mockEvents } from '@/lib/mockData'
 import { toast } from '@/lib/stores/toastStore'
 import { confirmDialog } from '@/lib/stores/confirmStore'
 import { useAdministrationStore } from '@/lib/stores/administrationStore'
+import { useEventStore } from '@/lib/stores/eventStore'
 
 export default function FinanceDashboard() {
   return (
@@ -42,8 +42,9 @@ function FinanceDashboardContent() {
   const { users } = useUserStore()
   const { addLog } = useActivityStore()
   const { administrations, ensureLoaded: ensureAdminsLoaded } = useAdministrationStore()
+  const { events, ensureLoaded: ensureEventsLoaded } = useEventStore()
 
-  useEffect(() => { ensureAdminsLoaded() }, [ensureAdminsLoaded])
+  useEffect(() => { ensureAdminsLoaded(); ensureEventsLoaded() }, [ensureAdminsLoaded, ensureEventsLoaded])
 
   const FINANCE_CATEGORIES = ['Budgets', 'Financial Records', 'Reports'] as const
 
@@ -306,7 +307,7 @@ function FinanceDashboardContent() {
               onChange={e => setEditForm({ ...editForm, event: e.target.value })}
               className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
             >
-              {mockEvents.map(evt => <option key={evt} value={evt}>{evt}</option>)}
+              {events.map(evt => <option key={evt.id} value={evt.name}>{evt.name}</option>)}
             </select>
           </div>
           <div>

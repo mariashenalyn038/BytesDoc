@@ -293,6 +293,30 @@ export async function apiDeleteCategory(id: string) {
   return apiFetch<void>(`/categories/${id}`, { method: 'DELETE' })
 }
 
+// ─── Events ─────────────────────────────────────────────────────────────────
+
+export async function apiListEvents() {
+  return apiFetch<import('@/types').Event[]>('/events')
+}
+
+export async function apiCreateEvent(payload: { name: string }) {
+  return apiFetch<import('@/types').Event>('/events', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function apiUpdateEvent(id: string, payload: { name: string }) {
+  return apiFetch<import('@/types').Event>(`/events/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify(payload),
+  })
+}
+
+export async function apiDeleteEvent(id: string) {
+  return apiFetch<void>(`/events/${id}`, { method: 'DELETE' })
+}
+
 // ─── Users ──────────────────────────────────────────────────────────────────
 
 export async function apiGetUsers() {
