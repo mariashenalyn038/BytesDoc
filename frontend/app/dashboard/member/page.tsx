@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+export const dynamic = 'force-dynamic'
+
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/authStore'
 import { useDocumentStore } from '@/lib/stores/documentStore'
@@ -18,6 +20,14 @@ import { mockCategories } from '@/lib/mockData'
 import { toast } from '@/lib/stores/toastStore'
 
 export default function MemberDashboard() {
+  return (
+    <Suspense fallback={null}>
+      <MemberDashboardContent />
+    </Suspense>
+  )
+}
+
+function MemberDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tab = searchParams.get('tab') || 'dashboard'

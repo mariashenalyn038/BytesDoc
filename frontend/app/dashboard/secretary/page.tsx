@@ -1,6 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+export const dynamic = 'force-dynamic'
+
+import { Suspense, useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuthStore } from '@/lib/stores/authStore'
 import { useDocumentStore } from '@/lib/stores/documentStore'
@@ -23,6 +25,14 @@ import { confirmDialog } from '@/lib/stores/confirmStore'
 import { useAdministrationStore } from '@/lib/stores/administrationStore'
 
 export default function SecretaryDashboard() {
+  return (
+    <Suspense fallback={null}>
+      <SecretaryDashboardContent />
+    </Suspense>
+  )
+}
+
+function SecretaryDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tab = searchParams.get('tab') || 'dashboard'
