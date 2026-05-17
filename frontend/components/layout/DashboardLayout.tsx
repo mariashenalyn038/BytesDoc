@@ -3,10 +3,11 @@
 import { ReactNode, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import Image from 'next/image' 
+import Image from 'next/image'
 import { useAuthStore } from '@/lib/stores/authStore'
-import { Menu, X, LogOut, Moon, Sun } from 'lucide-react'
+import { Menu, X, LogOut, Moon, Sun, Search } from 'lucide-react'
 import { useTheme } from 'next-themes'
+import CommandPalette from '@/components/ui/CommandPalette'
 
 interface Tab {
   name: string
@@ -21,6 +22,7 @@ interface DashboardLayoutProps {
 
 export default function DashboardLayout({ children, tabs, activeTab }: DashboardLayoutProps) {
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
   const { user, logout } = useAuthStore()
   const router = useRouter()
   const { theme, setTheme } = useTheme()
@@ -73,7 +75,19 @@ export default function DashboardLayout({ children, tabs, activeTab }: Dashboard
               ))}
             </div>
 
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
+              <button
+                onClick={() => setPaletteOpen(true)}
+                className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-md bg-white/[0.05] hover:bg-white/[0.08] ring-1 ring-white/10 text-xs text-gray-400 hover:text-gray-200 transition"
+                aria-label="Open command palette"
+              >
+                <Search size={14} />
+                <span>Search</span>
+                <kbd className="ml-1 inline-flex items-center text-[10px] font-medium text-gray-500 px-1.5 py-0.5 rounded ring-1 ring-white/15">
+                  Ctrl K
+                </kbd>
+              </button>
+
               <button
                 onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
                 className="p-2 hover:bg-white/10 rounded-full transition-colors"
@@ -122,6 +136,8 @@ export default function DashboardLayout({ children, tabs, activeTab }: Dashboard
       <main className="container mx-auto px-4 py-8">
         {children}
       </main>
+
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} tabs={tabs} />
     </div>
   )
 }
