@@ -96,7 +96,7 @@ function MemberDashboardContent() {
     <DashboardLayout tabs={tabs} activeTab={tab === 'documents' ? 'Documents' : tab === 'archive' ? 'Archive' : 'Dashboard'}>
       {tab === 'dashboard' && (
         <div className="space-y-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Member Dashboard</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Member Dashboard</h1>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <Card title="Accessible Documents" value={totalDocs} icon={<FileText size={32} />} />
@@ -138,7 +138,7 @@ function MemberDashboardContent() {
 
       {tab === 'documents' && (
         <div className="space-y-6">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Documents (View Only)</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Documents</h1>
 
           <input
             type="text"
@@ -163,7 +163,7 @@ function MemberDashboardContent() {
 
       {tab === 'archive' && (
         <div className="space-y-6">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Archive (View Only)</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Archive</h1>
           <ArchiveList
             documents={filteredDocs}
             onView={handleView}

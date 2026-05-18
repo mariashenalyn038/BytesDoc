@@ -210,11 +210,11 @@ export default function DocumentViewerModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-stretch sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
       onClick={onClose}
     >
       <div
-        className="bg-white dark:bg-gray-900 rounded-2xl shadow-elevated ring-1 ring-black/5 dark:ring-white/10 w-full max-w-6xl h-[90vh] flex flex-col overflow-hidden border border-border-subtle dark:border-white/5"
+        className="bg-white dark:bg-gray-900 sm:rounded-2xl shadow-elevated ring-1 ring-black/5 dark:ring-white/10 w-full max-w-6xl h-[100dvh] sm:h-[90vh] flex flex-col overflow-hidden border border-border-subtle dark:border-white/5"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -241,11 +241,11 @@ export default function DocumentViewerModal({
         </div>
 
         {/* Body */}
-        <div className="flex-1 flex min-h-0">
+        <div className="flex-1 flex flex-col lg:flex-row min-h-0 overflow-y-auto lg:overflow-hidden">
           {/* Left side: find sidebar + preview */}
-          <div className="flex-1 flex min-w-0">
+          <div className="flex-1 flex min-w-0 min-h-[55vh] lg:min-h-0">
             {findOpen && (
-              <aside className="w-[180px] shrink-0 border-r border-border-subtle dark:border-white/5 bg-white dark:bg-gray-900 flex flex-col min-h-0">
+              <aside className="hidden lg:flex w-[180px] shrink-0 border-r border-border-subtle dark:border-white/5 bg-white dark:bg-gray-900 flex-col min-h-0">
                 <div className="p-3 border-b border-border-subtle dark:border-white/5">
                   <label className="text-xs font-medium text-gray-700 dark:text-gray-300 block mb-1.5">
                     Find in document
@@ -307,12 +307,16 @@ export default function DocumentViewerModal({
 
             <div className="flex-1 flex flex-col min-w-0">
               {/* Toolbar */}
-              <div className="flex items-center gap-1 px-3 py-2 border-b border-border-subtle dark:border-white/5 bg-gray-50/80 dark:bg-gray-900/40">
+              <div className="flex items-center gap-1 px-2 sm:px-3 py-2 border-b border-border-subtle dark:border-white/5 bg-gray-50/80 dark:bg-gray-900/40 overflow-x-auto">
 
-                <ToolButton onClick={() => setFindOpen((v) => !v)} title="Toggle find sidebar">
+                <ToolButton
+                  onClick={() => setFindOpen((v) => !v)}
+                  title="Toggle find sidebar (desktop only)"
+                  className="hidden lg:inline-flex"
+                >
                   <Search size={15} />
                 </ToolButton>
-                <Sep />
+                <Sep className="hidden lg:inline-block" />
                 <ToolButton onClick={() => setZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)))} title="Zoom out">
                   <ZoomOut size={15} />
                 </ToolButton>
@@ -329,18 +333,18 @@ export default function DocumentViewerModal({
                   disabled={!canPrint}
                 >
                   <Printer size={15} />
-                  <span className="text-xs">Print</span>
+                  <span className="hidden sm:inline text-xs">Print</span>
                 </ToolButton>
                 <ToolButton onClick={handleDownload} title="Download">
                   <Download size={15} />
-                  <span className="text-xs">Download</span>
+                  <span className="hidden sm:inline text-xs">Download</span>
                 </ToolButton>
                 <div className="flex-1" />
-                <span className="text-xs text-gray-500 dark:text-gray-400">Page 1 of 1</span>
+                <span className="hidden sm:inline text-xs text-gray-500 dark:text-gray-400">Page 1 of 1</span>
               </div>
 
               {/* Preview */}
-              <div className="flex-1 overflow-auto p-6 flex items-start justify-center bg-gray-100 dark:bg-gray-950/60">
+              <div className="flex-1 overflow-auto p-3 sm:p-6 flex items-start justify-center bg-gray-100 dark:bg-gray-950/60">
 
                 {loading && (
                   <div className="text-gray-500 dark:text-gray-400 text-sm py-20">Loading preview...</div>
@@ -402,8 +406,8 @@ export default function DocumentViewerModal({
             </div>
           </div>
 
-          {/* Right panel */}
-          <aside className="w-[280px] shrink-0 border-l border-border-subtle dark:border-white/5 bg-white dark:bg-gray-900 overflow-y-auto">
+          {/* Right panel — stacks below preview on mobile, fixed right column on lg+ */}
+          <aside className="w-full lg:w-[280px] shrink-0 border-t lg:border-t-0 lg:border-l border-border-subtle dark:border-white/5 bg-white dark:bg-gray-900 lg:overflow-y-auto">
             <div className="p-4 space-y-4">
               <div className="flex items-start gap-3">
                 <div className="w-10 h-10 rounded-lg flex items-center justify-center shrink-0 bg-[#1a1a1a] dark:bg-white/[0.08] ring-1 ring-black/5 dark:ring-white/10">
@@ -502,26 +506,28 @@ function ToolButton({
   onClick,
   title,
   disabled,
+  className = '',
 }: {
   children: ReactNode
   onClick: () => void
   title: string
   disabled?: boolean
+  className?: string
 }) {
   return (
     <button
       onClick={onClick}
       title={title}
       disabled={disabled}
-      className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-gray-200 dark:hover:bg-white/[0.06] text-gray-700 dark:text-gray-300 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+      className={`shrink-0 inline-flex items-center gap-1.5 px-2 py-1 rounded-md hover:bg-gray-200 dark:hover:bg-white/[0.06] text-gray-700 dark:text-gray-300 transition disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-transparent ${className}`}
     >
       {children}
     </button>
   )
 }
 
-function Sep() {
-  return <span className="w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1" />
+function Sep({ className = '' }: { className?: string }) {
+  return <span className={`w-px h-4 bg-gray-300 dark:bg-gray-600 mx-1 ${className}`} />
 }
 
 function ActionTile({

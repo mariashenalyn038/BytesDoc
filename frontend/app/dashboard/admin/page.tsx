@@ -295,10 +295,10 @@ function AdminDashboardContent() {
       {/* ── DASHBOARD TAB ─────────────────────────────────────── */}
       {tab === 'dashboard' && (
         <div className="space-y-8">
-          <div className="flex items-center justify-between">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
             {usingMock && (
-              <span className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 px-3 py-1 rounded-full">
+              <span className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 px-3 py-1 rounded-full self-start sm:self-auto">
                 Demo Mode (backend offline)
               </span>
             )}
@@ -394,8 +394,8 @@ function AdminDashboardContent() {
       {/* ── DOCUMENTS TAB ─────────────────────────────────────── */}
       {tab === 'documents' && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Documents</h1>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Documents</h1>
             <Button onClick={() => setUploadModalOpen(true)}>
               <Upload size={20} className="inline mr-2" />
               Upload Document
@@ -447,7 +447,7 @@ function AdminDashboardContent() {
       {/* ── ARCHIVE TAB ──────────────────────────────────────── */}
       {tab === 'archive' && (
         <div className="space-y-6">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Archive</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Archive</h1>
           <ArchiveList
             documents={archivedDocs}
             archivableDocs={activeDocs}
@@ -466,8 +466,8 @@ function AdminDashboardContent() {
       {/* ── USERS TAB ─────────────────────────────────────────── */}
       {tab === 'users' && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">User Management</h1>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">User Management</h1>
             <Button onClick={() => setInviteModalOpen(true)}>
               <Users size={20} className="inline mr-2" />
               Invite User
@@ -483,8 +483,8 @@ function AdminDashboardContent() {
       {/* ── ACTIVITY LOGS TAB ────────────────────────────────── */}
       {tab === 'logs' && (
         <div className="space-y-6">
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">Activity Logs</h1>
+          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Activity Logs</h1>
             <Button onClick={handleExportLogs} variant="secondary">
               <Download size={20} className="inline mr-2" />
               Export CSV
