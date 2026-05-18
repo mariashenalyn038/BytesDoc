@@ -66,8 +66,10 @@ router.post('/', requireAuth, requireRole('chief_minister'), async (req, res, ne
       return res.status(500).json({ error: 'could not resolve role' })
     }
 
-    // Send the invite email — creates an auth.users row in "invited" state
-    const redirectTo = (process.env.FRONTEND_URL || 'http://localhost:3000') + '/login'
+    // Send the invite email — creates an auth.users row in "invited" state.
+    // Supabase appends the access/refresh tokens to redirectTo as a URL hash;
+    // the /accept-invite page parses them and prompts the user to set a password.
+    const redirectTo = (process.env.FRONTEND_URL || 'http://localhost:3000') + '/accept-invite'
     const { data: inviteData, error: inviteErr } = await supabase.auth.admin.inviteUserByEmail(
       email,
       { data: { name, role }, redirectTo }
