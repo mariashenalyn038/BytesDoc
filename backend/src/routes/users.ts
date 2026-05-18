@@ -76,7 +76,15 @@ router.post('/', requireAuth, requireRole('chief_minister'), async (req, res, ne
     )
 
     if (inviteErr || !inviteData?.user) {
-      const msg = inviteErr?.message ?? 'could not send invite'
+      console.error('[invite] supabase.auth.admin.inviteUserByEmail failed:', {
+        email,
+        message: inviteErr?.message,
+        status: (inviteErr as any)?.status,
+        code: (inviteErr as any)?.code,
+        name: inviteErr?.name,
+        raw: inviteErr,
+      })
+      const msg = inviteErr?.message?.trim() || 'could not send invite'
       if (msg.toLowerCase().includes('already')) {
         return res.status(409).json({ error: 'a user with this email already exists' })
       }
