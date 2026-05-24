@@ -23,12 +23,14 @@ import { FileTypeBadge } from '@/components/ui/FileTypeIcon'
 import { useAdministrationStore } from '@/lib/stores/administrationStore'
 import { useCategoryStore } from '@/lib/stores/categoryStore'
 import { useEventStore } from '@/lib/stores/eventStore'
-import { FileText, Archive, Upload, Users, Activity, Download } from 'lucide-react'
+import { FileText, Archive, Upload, Users, Activity, Download, ChevronDown } from 'lucide-react'
 import { Document, User } from '@/types'
 import { apiGetDashboardStats, DashboardStats } from '@/lib/api'
 import { mockCategories } from '@/lib/mockData'
 import { toast } from '@/lib/stores/toastStore'
 import { confirmDialog } from '@/lib/stores/confirmStore'
+import FolderExplorer from '@/components/dashboard/FolderExplorer'
+import { useFolderStore } from '@/lib/stores/folderStore'
 
 const TABS = [
   { name: 'Dashboard', href: '/dashboard/admin' },
@@ -70,6 +72,8 @@ function AdminDashboardContent() {
   const { categories, ensureLoaded: ensureCategoriesLoaded } = useCategoryStore()
   const { events, ensureLoaded: ensureEventsLoaded } = useEventStore()
 
+  const assignDocumentToFolder = useFolderStore(s => s.assignDocumentToFolder)
+
   // ── Local UI state ──────────────────────────────────────────────────────
   const [searchTerm, setSearchTerm] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('All')
@@ -84,6 +88,11 @@ function AdminDashboardContent() {
   const [filterAction, setFilterAction] = useState('All')
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [isInviting, setIsInviting] = useState(false)
+
+  // Welcome Intro states
+  const [showSummary, setShowSummary] = useState(false)
+  const [uploadPrefill, setUploadPrefill] = useState<{ category: string; administration: string; event?: string } | null>(null)
+  const [targetFolderId, setTargetFolderId] = useState<string | null>(null)
 
   // ── Auth guard ──────────────────────────────────────────────────────────
   useEffect(() => {
@@ -166,7 +175,7 @@ function AdminDashboardContent() {
   // ── Handlers ────────────────────────────────────────────────────────────
   const handleUpload = async (data: { title: string; category: string; event: string; administration: string }, file?: File | null) => {
     try {
-      await addDocument(file ?? null, { ...data, fileType: file?.name.endsWith('.docx') ? 'docx' : 'pdf' }, {
+      const doc = await addDocument(file ?? null, { ...data, fileType: file?.name.endsWith('.docx') ? 'docx' : 'pdf' }, {
         title: data.title,
         category: data.category as Document['category'],
         event: data.event,
@@ -178,6 +187,11 @@ function AdminDashboardContent() {
         is_locked: false,
         fileType: 'pdf',
       })
+      if (targetFolderId && doc?.id) {
+        assignDocumentToFolder(doc.id, targetFolderId)
+        setTargetFolderId(null)
+      }
+      setUploadPrefill(null)
       setUploadModalOpen(false)
       toast.success('Document uploaded')
     } catch (e: any) {
@@ -295,99 +309,152 @@ function AdminDashboardContent() {
       {/* ── DASHBOARD TAB ─────────────────────────────────────── */}
       {tab === 'dashboard' && (
         <div className="space-y-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Admin Dashboard</h1>
-            {usingMock && (
-              <span className="text-xs bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200 px-3 py-1 rounded-full self-start sm:self-auto">
-                Demo Mode (backend offline)
+          {/* Welcome Intro Section */}
+          <div className="bg-gradient-to-r from-[#0A2647] to-[#1E3A5F] text-white p-8 rounded-2xl shadow-xl relative overflow-hidden">
+            <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none transform translate-y-1/4 translate-x-1/4">
+              <FileText size={350} />
+            </div>
+            <div className="max-w-2xl relative z-10 space-y-4">
+              <span className="bg-blue-500/25 text-blue-200 border border-blue-400/30 px-3 py-1 rounded-full text-[11px] font-bold uppercase tracking-wider">
+                Official MSU BYTES Platform
               </span>
-            )}
-          </div>
-
-          {(() => {
-            const trend = (stats?.uploadsOverTime ?? []).slice(-6).map(d => d.value)
-            const recentDelta = trend.length >= 2 ? trend[trend.length - 1] - trend[trend.length - 2] : undefined
-            return (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <Card title="Total Documents" value={stats?.totalDocuments ?? documents.length} icon={<FileText size={28} />} />
-                <Card title="Active Documents" value={stats?.activeDocuments ?? activeDocs.length} icon={<FileText size={28} />} />
-                <Card title="Archived Documents" value={stats?.archivedDocuments ?? archivedDocs.length} icon={<Archive size={28} />} />
-                <Card
-                  title="Recent Uploads (7d)"
-                  value={stats?.recentUploads ?? 0}
-                  icon={<Upload size={28} />}
-                  sparkline={trend.length > 1 ? trend : undefined}
-                  delta={recentDelta}
-                  deltaLabel="vs prior period"
-                />
+              <h1 className="text-3xl sm:text-4xl font-extrabold tracking-tight">
+                Welcome to BytesDoc
+              </h1>
+              <p className="text-blue-100 text-sm sm:text-base leading-relaxed">
+                BytesDoc serves as the central student council archive. It is designed to catalog, organize,
+                and securely store executive files across diverse categories like Finance, Secretary, and Elections, ensuring perfect administrative continuity.
+              </p>
+              <div className="flex flex-wrap gap-3 pt-2">
+                <Button
+                  onClick={() => router.push('/dashboard/admin?tab=documents')}
+                  className="bg-blue-600 hover:bg-blue-700 text-white font-medium border-0 px-6"
+                >
+                  Browse Folders
+                </Button>
+                <Button
+                  onClick={() => setShowSummary(!showSummary)}
+                  variant="secondary"
+                  className="bg-white/10 hover:bg-white/20 border-white/20 text-white font-medium px-6"
+                >
+                  {showSummary ? 'Hide Statistics' : 'View Statistics'}
+                </Button>
               </div>
-            )
-          })()}
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Documents per Category</h2>
-              <BarChart data={stats?.docsPerCategory ?? []} />
-            </div>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Uploads over Time</h2>
-              <LineChart data={stats?.uploadsOverTime ?? []} />
             </div>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold text-gray-900 dark:text-white">Recent Documents</h2>
-              <button
-                onClick={() => router.push('/dashboard/admin?tab=documents')}
-                className="text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition"
-              >
-                View all →
-              </button>
+          {/* Slide Down stats trigger */}
+          {!showSummary && (
+            <div
+              className="flex flex-col items-center justify-center pt-4 animate-bounce cursor-pointer group"
+              onClick={() => setShowSummary(true)}
+            >
+              <span className="text-xs font-semibold text-gray-500 dark:text-gray-400 group-hover:text-primary transition">
+                Slide down or click to view statistics
+              </span>
+              <ChevronDown size={20} className="text-gray-400 group-hover:text-primary mt-1 transition" />
             </div>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-border-subtle dark:border-white/5 bg-gray-50/80 dark:bg-gray-900/40">
-                    <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Title</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Category</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Uploader</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Date</th>
-                    <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {(stats?.recentDocuments ?? activeDocs.slice(0, 5).map(d => ({
-                    id: d.id, title: d.title, category: d.category,
-                    uploadDate: d.uploadDate, uploaderName: uploaderNames[d.uploadedBy] ?? 'Unknown',
-                  }))).map(d => (
-                    <tr key={d.id} className="border-b dark:border-gray-700">
-                      <td className="py-3 px-4 text-gray-900 dark:text-white">
-                        <span className="inline-flex items-center gap-2">
-                          <FileTypeBadge fileType={documents.find(doc => doc.id === d.id)?.fileType ?? 'pdf'} />
-                          <span>{d.title}</span>
-                        </span>
-                      </td>
-                      <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{d.category}</td>
-                      <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{d.uploaderName}</td>
-                      <td className="py-3 px-4 text-gray-600 dark:text-gray-400">
-                        {new Date(d.uploadDate).toLocaleDateString()}
-                      </td>
-                      <td className="py-3 px-4">
-                        <button
-                          onClick={() => handleDownload(documents.find(doc => doc.id === d.id)!)}
-                          className="text-blue-500 hover:text-blue-700"
-                          title="Download"
-                        >
-                          <Download size={18} />
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          )}
+
+          {/* Summary section (smoothly toggled) */}
+          {showSummary && (
+            <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700/50 pb-2">
+                <h2 className="text-lg font-bold text-gray-900 dark:text-white">System Summary Stats</h2>
+                <button
+                  onClick={() => setShowSummary(false)}
+                  className="text-xs font-medium text-gray-500 dark:text-gray-400 hover:text-red-500 transition"
+                >
+                  Hide Stats ▲
+                </button>
+              </div>
+
+              {(() => {
+                const trend = (stats?.uploadsOverTime ?? []).slice(-6).map(d => d.value)
+                const recentDelta = trend.length >= 2 ? trend[trend.length - 1] - trend[trend.length - 2] : undefined
+                return (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                    <Card title="Total Documents" value={stats?.totalDocuments ?? documents.length} icon={<FileText size={28} />} />
+                    <Card title="Active Documents" value={stats?.activeDocuments ?? activeDocs.length} icon={<FileText size={28} />} />
+                    <Card title="Archived Documents" value={stats?.archivedDocuments ?? archivedDocs.length} icon={<Archive size={28} />} />
+                    <Card
+                      title="Recent Uploads (7d)"
+                      value={stats?.recentUploads ?? 0}
+                      icon={<Upload size={28} />}
+                      sparkline={trend.length > 1 ? trend : undefined}
+                      delta={recentDelta}
+                      deltaLabel="vs prior period"
+                    />
+                  </div>
+                )
+              })()}
+
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Documents per Category</h2>
+                  <BarChart data={stats?.docsPerCategory ?? []} />
+                </div>
+                <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Uploads over Time</h2>
+                  <LineChart data={stats?.uploadsOverTime ?? []} />
+                </div>
+              </div>
+
+              <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-xl font-bold text-gray-900 dark:text-white">Recent Documents</h2>
+                  <button
+                    onClick={() => router.push('/dashboard/admin?tab=documents')}
+                    className="text-xs font-medium text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition"
+                  >
+                    View all →
+                  </button>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border-subtle dark:border-white/5 bg-gray-50/80 dark:bg-gray-900/40">
+                        <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Title</th>
+                        <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Category</th>
+                        <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Uploader</th>
+                        <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Date</th>
+                        <th className="text-left py-3 px-4 text-xs font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">Action</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(stats?.recentDocuments ?? activeDocs.slice(0, 5).map(d => ({
+                        id: d.id, title: d.title, category: d.category,
+                        uploadDate: d.uploadDate, uploaderName: uploaderNames[d.uploadedBy] ?? 'Unknown',
+                      }))).map(d => (
+                        <tr key={d.id} className="border-b dark:border-gray-700">
+                          <td className="py-3 px-4 text-gray-900 dark:text-white">
+                            <span className="inline-flex items-center gap-2">
+                              <FileTypeBadge fileType={documents.find(doc => doc.id === d.id)?.fileType ?? 'pdf'} />
+                              <span>{d.title}</span>
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{d.category}</td>
+                          <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{d.uploaderName}</td>
+                          <td className="py-3 px-4 text-gray-600 dark:text-gray-400">
+                            {new Date(d.uploadDate).toLocaleDateString()}
+                          </td>
+                          <td className="py-3 px-4">
+                            <button
+                              onClick={() => handleDownload(documents.find(doc => doc.id === d.id)!)}
+                              className="text-blue-500 hover:text-blue-700"
+                              title="Download"
+                            >
+                              <Download size={18} />
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
             </div>
-          </div>
+          )}
         </div>
       )}
 
@@ -395,51 +462,33 @@ function AdminDashboardContent() {
       {tab === 'documents' && (
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Documents</h1>
-            <Button onClick={() => setUploadModalOpen(true)}>
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Documents Explorer</h1>
+            <Button
+              onClick={() => {
+                setUploadPrefill(null)
+                setTargetFolderId(null)
+                setUploadModalOpen(true)
+              }}
+            >
               <Upload size={20} className="inline mr-2" />
               Upload Document
             </Button>
           </div>
 
-          <div className="flex flex-wrap gap-3">
-            <input
-              type="text"
-              placeholder="Search documents..."
-              value={searchTerm}
-              onChange={e => setSearchTerm(e.target.value)}
-              className="flex-1 min-w-[200px] px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-            />
-            <div className="flex gap-2 flex-wrap">
-              {['All', ...categories.map(c => c.name)].map(cat => (
-                <button
-                  key={cat}
-                  onClick={() => setCategoryFilter(cat)}
-                  className={`px-3 py-1 rounded-full text-sm font-medium transition ${
-                    categoryFilter === cat
-                      ? 'bg-primary text-white'
-                      : 'bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300'
-                  }`}
-                >
-                  {cat}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <DocumentTable
-            documents={filteredActiveDocs}
-            canUpload={true}
-            canEdit={() => true}
-            canDelete={() => true}
-            canArchive={true}
+          <FolderExplorer
+            documents={documents}
+            role={user.role}
             onView={handleView}
             onDownload={handleDownload}
             onEdit={handleEditOpen}
             onDelete={handleDelete}
             onArchive={handleArchive}
             uploaderNames={uploaderNames}
-            isLoading={documentsLoading}
+            onUploadRequested={(prefill, folderId) => {
+              setUploadPrefill(prefill)
+              setTargetFolderId(folderId)
+              setUploadModalOpen(true)
+            }}
           />
         </div>
       )}
@@ -447,14 +496,13 @@ function AdminDashboardContent() {
       {/* ── ARCHIVE TAB ──────────────────────────────────────── */}
       {tab === 'archive' && (
         <div className="space-y-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Archive</h1>
-          <ArchiveList
-            documents={archivedDocs}
-            archivableDocs={activeDocs}
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Archive Explorer</h1>
+          <FolderExplorer
+            documents={documents}
+            role={user.role}
+            isArchive={true}
             onView={handleView}
             onDownload={handleDownload}
-            canBulkArchive={true}
-            onBulkArchive={handleBulkArchive}
             uploaderNames={uploaderNames}
           />
         </div>
@@ -505,9 +553,14 @@ function AdminDashboardContent() {
       {/* ── MODALS ───────────────────────────────────────────── */}
       <UploadModal
         isOpen={uploadModalOpen}
-        onClose={() => setUploadModalOpen(false)}
+        onClose={() => {
+          setUploadModalOpen(false)
+          setUploadPrefill(null)
+          setTargetFolderId(null)
+        }}
         onUpload={handleUpload}
         allowedCategories={categories.map(c => c.name)}
+        prefill={uploadPrefill}
       />
 
       <DocumentViewerModal

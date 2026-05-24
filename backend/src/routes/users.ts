@@ -66,15 +66,25 @@ router.post('/', requireAuth, requireRole('chief_minister'), async (req, res, ne
       return res.status(500).json({ error: 'could not resolve role' })
     }
 
-    // Send the invite email — creates an auth.users row in "invited" state
-    const redirectTo = (process.env.FRONTEND_URL || 'http://localhost:3000') + '/login'
+    // Send the invite email — creates an auth.users row in "invited" state.
+    // Supabase appends the access/refresh tokens to redirectTo as a URL hash;
+    // the /accept-invite page parses them and prompts the user to set a password.
+    const redirectTo = (process.env.FRONTEND_URL || 'http://localhost:3000') + '/accept-invite'
     const { data: inviteData, error: inviteErr } = await supabase.auth.admin.inviteUserByEmail(
       email,
       { data: { name, role }, redirectTo }
     )
 
     if (inviteErr || !inviteData?.user) {
-      const msg = inviteErr?.message ?? 'could not send invite'
+      console.error('[invite] supabase.auth.admin.inviteUserByEmail failed:', {
+        email,
+        message: inviteErr?.message,
+        status: (inviteErr as any)?.status,
+        code: (inviteErr as any)?.code,
+        name: inviteErr?.name,
+        raw: inviteErr,
+      })
+      const msg = inviteErr?.message?.trim() || 'could not send invite'
       if (msg.toLowerCase().includes('already')) {
         return res.status(409).json({ error: 'a user with this email already exists' })
       }
@@ -83,7 +93,11 @@ router.post('/', requireAuth, requireRole('chief_minister'), async (req, res, ne
 
     const newUserId = inviteData.user.id
 
-    // Insert profile row using the auth user's ID; roll back the auth user on failure
+    // Insert profile row using the auth user's ID.
+    // On unique-constraint conflicts we DO NOT delete the auth user — doing so would
+    // invalidate the invite token that Supabase just emailed, breaking the link the
+    // recipient is about to click. Instead we detect re-invites and return the
+    // existing profile so the caller sees a clean success.
     const { data, error } = await supabase
       .from('users')
       .insert({ id: newUserId, email, name, role_id: roleRow.id })
@@ -91,8 +105,27 @@ router.post('/', requireAuth, requireRole('chief_minister'), async (req, res, ne
       .single<ProfileRow>()
 
     if (error || !data) {
+      if (error?.code === '23505') {
+        // Re-invite of an existing auth user: a profile with this id already exists.
+        // Email has already been re-sent by inviteUserByEmail — return the existing profile.
+        const { data: existingById } = await supabase
+          .from('users')
+          .select('id, email, name, role:roles(role_name), created_at')
+          .eq('id', newUserId)
+          .maybeSingle<ProfileRow>()
+        if (existingById) {
+          return res.status(200).json(toUser(existingById))
+        }
+        // Orphan profile from a past failed attempt — email collides but id doesn't.
+        // The new auth user we just created has no profile to log into, so roll it back
+        // (its invite link is dead either way without a matching profile row).
+        await supabase.auth.admin.deleteUser(newUserId).catch(() => {})
+        return res.status(409).json({
+          error: 'a stale profile row exists for this email — delete it in the Supabase users table, then retry',
+        })
+      }
+      // Genuine failure unrelated to a duplicate — safe to roll back the auth user.
       await supabase.auth.admin.deleteUser(newUserId).catch(() => {})
-      if (error?.code === '23505') return res.status(409).json({ error: 'user profile already exists' })
       return res.status(500).json({ error: error?.message ?? 'profile creation failed' })
     }
 

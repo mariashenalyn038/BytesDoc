@@ -23,6 +23,8 @@ import { toast } from '@/lib/stores/toastStore'
 import { confirmDialog } from '@/lib/stores/confirmStore'
 import { useAdministrationStore } from '@/lib/stores/administrationStore'
 import { useEventStore } from '@/lib/stores/eventStore'
+import FolderExplorer from '@/components/dashboard/FolderExplorer'
+import { useFolderStore } from '@/lib/stores/folderStore'
 
 export default function FinanceDashboard() {
   return (
@@ -46,6 +48,7 @@ function FinanceDashboardContent() {
 
   useEffect(() => { ensureAdminsLoaded(); ensureEventsLoaded() }, [ensureAdminsLoaded, ensureEventsLoaded])
 
+  const assignDocumentToFolder = useFolderStore(s => s.assignDocumentToFolder)
   const FINANCE_CATEGORIES = ['Budgets', 'Financial Records', 'Reports'] as const
 
   const [searchTerm, setSearchTerm] = useState('')
@@ -54,6 +57,9 @@ function FinanceDashboardContent() {
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null)
   const [editForm, setEditForm] = useState({ title: '', category: '', event: '', administration: '' })
+
+  const [uploadPrefill, setUploadPrefill] = useState<{ category: string; administration: string; event?: string } | null>(null)
+  const [targetFolderId, setTargetFolderId] = useState<string | null>(null)
 
   useEffect(() => {
     if (!hasHydrated) return
@@ -93,7 +99,7 @@ function FinanceDashboardContent() {
     file?: File | null
   ) => {
     try {
-      await addDocument(file ?? null, {
+      const doc = await addDocument(file ?? null, {
         ...data,
         fileType: file?.name.endsWith('.docx') ? 'docx' : 'pdf',
       }, {
@@ -108,6 +114,11 @@ function FinanceDashboardContent() {
         is_locked: false,
         fileType: 'pdf',
       })
+      if (targetFolderId && doc?.id) {
+        assignDocumentToFolder(doc.id, targetFolderId)
+        setTargetFolderId(null)
+      }
+      setUploadPrefill(null)
       setUploadModalOpen(false)
       toast.success('Document uploaded')
     } catch (e: any) {
@@ -164,23 +175,33 @@ function FinanceDashboardContent() {
     }
   }
 
-  const totalDocs = financialDocs.filter(d => !d.is_archived).length
-  const budgetReports = financialDocs.filter(d => d.category === 'Budgets').length
-  const expenseRecords = financialDocs.filter(d => d.category === 'Financial Records').length
+  const sortedAdmins = [...administrations].sort((a, b) => b.name.localeCompare(a.name))
+  const currentAdmin = sortedAdmins[0]?.name || '2025-2026'
+
+  // Only current administration financial documents for dashboard summary
+  const currentAdminDocs = financialDocs.filter(d => d.administration === currentAdmin)
+  const totalDocs = currentAdminDocs.filter(d => !d.is_archived).length
+  const budgetReports = currentAdminDocs.filter(d => d.category === 'Budgets').length
+  const expenseRecords = currentAdminDocs.filter(d => d.category === 'Financial Records').length
 
   const categoryData = [
     { name: 'Budgets', value: budgetReports },
     { name: 'Financial Records', value: expenseRecords },
-    { name: 'Reports', value: financialDocs.filter(d => d.category === 'Reports').length },
+    { name: 'Reports', value: currentAdminDocs.filter(d => d.category === 'Reports').length },
   ]
 
-  const recentDocs = financialDocs.filter(d => !d.is_archived).slice(0, 5)
+  const recentDocs = currentAdminDocs.filter(d => !d.is_archived).slice(0, 5)
 
   return (
     <DashboardLayout tabs={tabs} activeTab={tab === 'documents' ? 'Documents' : tab === 'archive' ? 'Archive' : 'Dashboard'}>
       {tab === 'dashboard' && (
         <div className="space-y-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Finance Dashboard</h1>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Finance Dashboard</h1>
+              <p className="text-xs text-gray-500 mt-1">Showing statistics for active administration: <span className="font-semibold text-primary">{currentAdmin}</span></p>
+            </div>
+          </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <Card title="Financial Documents" value={totalDocs} icon={<FileText size={32} />} />
@@ -225,31 +246,31 @@ function FinanceDashboardContent() {
         <div className="space-y-6">
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Financial Documents</h1>
-            <Button onClick={() => setUploadModalOpen(true)}>
+            <Button
+              onClick={() => {
+                setUploadPrefill(null)
+                setTargetFolderId(null)
+                setUploadModalOpen(true)
+              }}
+            >
               <Upload size={20} className="inline mr-2" />
               Upload Document
             </Button>
           </div>
 
-          <input
-            type="text"
-            placeholder="Search documents..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-          />
-
-          <DocumentTable
-            documents={filteredDocs}
-            canUpload={true}
-            canEdit={(doc) => doc.uploadedBy === user.id}
-            canDelete={(doc) => doc.uploadedBy === user.id}
-            canArchive={false}
+          <FolderExplorer
+            documents={documents}
+            role={user.role}
             onView={handleView}
             onDownload={handleDownload}
             onEdit={handleEditOpen}
             onDelete={handleDelete}
             uploaderNames={uploaderNames}
+            onUploadRequested={(prefill, folderId) => {
+              setUploadPrefill(prefill)
+              setTargetFolderId(folderId)
+              setUploadModalOpen(true)
+            }}
           />
         </div>
       )}
@@ -257,8 +278,10 @@ function FinanceDashboardContent() {
       {tab === 'archive' && (
         <div className="space-y-6">
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Financial Archive (Read Only)</h1>
-          <ArchiveList
-            documents={filteredDocs}
+          <FolderExplorer
+            documents={documents}
+            role={user.role}
+            isArchive={true}
             onView={handleView}
             onDownload={handleDownload}
             uploaderNames={uploaderNames}
@@ -268,9 +291,14 @@ function FinanceDashboardContent() {
 
       <UploadModal
         isOpen={uploadModalOpen}
-        onClose={() => setUploadModalOpen(false)}
+        onClose={() => {
+          setUploadModalOpen(false)
+          setUploadPrefill(null)
+          setTargetFolderId(null)
+        }}
         onUpload={handleUpload}
         allowedCategories={['Budgets', 'Financial Records', 'Reports']}
+        prefill={uploadPrefill}
       />
 
       <DocumentViewerModal
