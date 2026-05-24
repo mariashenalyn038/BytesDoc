@@ -36,6 +36,7 @@ interface UploadModalProps {
     file?: File | null
   ) => void | Promise<void>
   allowedCategories: string[]
+  prefill?: { category?: string; administration?: string; event?: string } | null
 }
 
 export default function UploadModal({
@@ -43,6 +44,7 @@ export default function UploadModal({
   onClose,
   onUpload,
   allowedCategories,
+  prefill,
 }: UploadModalProps) {
   const { administrations, ensureLoaded } = useAdministrationStore()
   const { events, ensureLoaded: ensureEventsLoaded } = useEventStore()
@@ -95,8 +97,16 @@ export default function UploadModal({
     if (isOpen) {
       void ensureLoaded()
       void ensureEventsLoaded()
+      if (prefill) {
+        setFormData({
+          title: '',
+          category: prefill.category ?? allowedCategories[0] ?? '',
+          administration: prefill.administration ?? (administrations[0]?.name || ''),
+          event: prefill.event ?? (events[0]?.name || ''),
+        })
+      }
     }
-  }, [isOpen, ensureLoaded, ensureEventsLoaded])
+  }, [isOpen, ensureLoaded, ensureEventsLoaded, prefill])
 
   useEffect(() => {
     if (!formData.administration && administrations.length > 0) {
