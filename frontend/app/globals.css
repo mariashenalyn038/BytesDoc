@@ -11,6 +11,34 @@ body {
   font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
 }
 
+/* ── Modal + palette enter animations ─────────────────────────────────────── */
+@keyframes byd-backdrop-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes byd-modal-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.985); }
+  to   { opacity: 1; transform: translateY(0)    scale(1); }
+}
+.byd-backdrop-in { animation: byd-backdrop-in 240ms ease forwards; }
+.byd-modal-in    { animation: byd-modal-in    280ms cubic-bezier(.2,.7,.3,1) forwards; }
+
+@keyframes byd-pulse-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%      { opacity: 0.55; transform: scale(0.85); }
+}
+.byd-pulse-dot { animation: byd-pulse-dot 1.8s ease-in-out infinite; }
+
+@keyframes byd-bounce-dn {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(3px); }
+}
+.byd-bounce-dn { animation: byd-bounce-dn 1.6s ease-in-out infinite; }
+
+/* ── Utility: hide scrollbars while keeping scroll behavior ────────────────── */
+.scrollbar-none { scrollbar-width: none; }
+.scrollbar-none::-webkit-scrollbar { display: none; }
+
 /* DOCX preview content (rendered by mammoth.js inside DocumentViewerModal) */
 .docx-preview h1 { font-size: 1.75rem; font-weight: 700; margin: 1rem 0 0.5rem; }
 .docx-preview h2 { font-size: 1.4rem;  font-weight: 700; margin: 1rem 0 0.5rem; }

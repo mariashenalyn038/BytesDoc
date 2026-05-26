@@ -55,6 +55,32 @@ export function FileTypeBadge({ fileType }: { fileType: Document['fileType'] }) 
   )
 }
 
+const TILE_BG: Record<Document['fileType'], string> = {
+  pdf: 'bg-red-50 text-red-600 dark:bg-red-500/10 dark:text-red-400',
+  docx: 'bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-400',
+}
+const TILE_BG_FALLBACK = 'bg-gray-100 text-gray-600 dark:bg-white/[0.06] dark:text-gray-400'
+
+export function FileTypeTile({
+  fileType,
+  size = 'md',
+}: {
+  fileType: Document['fileType']
+  size?: 'md' | 'lg'
+}) {
+  const cfg = fileTypeMeta(fileType)
+  const tone = TILE_BG[fileType] ?? TILE_BG_FALLBACK
+  const dims = size === 'lg' ? 'size-10 text-[10px]' : 'size-8 text-[9px]'
+  return (
+    <div
+      className={`shrink-0 rounded-md grid place-items-center font-bold ${tone} ${dims}`}
+      title={cfg.label}
+    >
+      {cfg.short}
+    </div>
+  )
+}
+
 export default function FileTypeIcon({
   fileType,
   size = 18,

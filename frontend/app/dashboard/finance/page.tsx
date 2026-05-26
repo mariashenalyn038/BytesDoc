@@ -12,19 +12,22 @@ import DashboardLayout from '@/components/layout/DashboardLayout'
 import Card from '@/components/ui/Card'
 import Button from '@/components/ui/Button'
 import Modal from '@/components/ui/Modal'
+import Input from '@/components/ui/Input'
+import Eyebrow from '@/components/ui/Eyebrow'
 import BarChart from '@/components/charts/BarChart'
-import DocumentTable from '@/components/dashboard/DocumentTable'
-import ArchiveList from '@/components/dashboard/ArchiveList'
 import DocumentViewerModal from '@/components/dashboard/DocumentViewerModal'
 import UploadModal from '@/components/dashboard/UploadModal'
-import { FileText, DollarSign, Upload } from 'lucide-react'
+import FolderExplorer from '@/components/dashboard/FolderExplorer'
+import { FileTypeTile } from '@/components/ui/FileTypeIcon'
+import { FileText, DollarSign, Upload, Archive, Activity } from 'lucide-react'
 import { Document } from '@/types'
 import { toast } from '@/lib/stores/toastStore'
 import { confirmDialog } from '@/lib/stores/confirmStore'
 import { useAdministrationStore } from '@/lib/stores/administrationStore'
 import { useEventStore } from '@/lib/stores/eventStore'
-import FolderExplorer from '@/components/dashboard/FolderExplorer'
 import { useFolderStore } from '@/lib/stores/folderStore'
+
+const FINANCE_CATEGORIES = ['Budgets', 'Financial Records', 'Reports'] as const
 
 export default function FinanceDashboard() {
   return (
@@ -38,7 +41,7 @@ function FinanceDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tab = searchParams.get('tab') || 'dashboard'
-  
+
   const { user, isAuthenticated, hasHydrated } = useAuthStore()
   const { documents, addDocument, updateDocument, deleteDocument } = useDocumentStore()
   const { users } = useUserStore()
@@ -49,15 +52,12 @@ function FinanceDashboardContent() {
   useEffect(() => { ensureAdminsLoaded(); ensureEventsLoaded() }, [ensureAdminsLoaded, ensureEventsLoaded])
 
   const assignDocumentToFolder = useFolderStore(s => s.assignDocumentToFolder)
-  const FINANCE_CATEGORIES = ['Budgets', 'Financial Records', 'Reports'] as const
 
-  const [searchTerm, setSearchTerm] = useState('')
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [viewModalOpen, setViewModalOpen] = useState(false)
   const [editModalOpen, setEditModalOpen] = useState(false)
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null)
   const [editForm, setEditForm] = useState({ title: '', category: '', event: '', administration: '' })
-
   const [uploadPrefill, setUploadPrefill] = useState<{ category: string; administration: string; event?: string } | null>(null)
   const [targetFolderId, setTargetFolderId] = useState<string | null>(null)
 
@@ -81,21 +81,12 @@ function FinanceDashboardContent() {
     return acc
   }, {} as Record<string, string>)
 
-  // Only financial documents
-  const financialDocs = documents.filter(d => 
-    d.category === 'Budgets' || d.category === 'Financial Records' || d.category === 'Reports'
+  const financialDocs = documents.filter(
+    d => d.category === 'Budgets' || d.category === 'Financial Records' || d.category === 'Reports'
   )
-  
-  const filteredDocs = financialDocs.filter(d => {
-    if (tab === 'documents') {
-      const matchesSearch = d.title.toLowerCase().includes(searchTerm.toLowerCase())
-      return !d.is_archived && matchesSearch
-    }
-    return d.is_archived
-  })
 
   const handleUpload = async (
-    data: { title: string; category: string; event: string; administration: string },
+    data: { title: string; category: string; event: string; administration: string; folderId?: string | null },
     file?: File | null
   ) => {
     try {
@@ -114,8 +105,9 @@ function FinanceDashboardContent() {
         is_locked: false,
         fileType: 'pdf',
       })
-      if (targetFolderId && doc?.id) {
-        assignDocumentToFolder(doc.id, targetFolderId)
+      const resolvedFolderId = data.folderId ?? targetFolderId
+      if (resolvedFolderId && doc?.id) {
+        assignDocumentToFolder(doc.id, resolvedFolderId)
         setTargetFolderId(null)
       }
       setUploadPrefill(null)
@@ -177,89 +169,103 @@ function FinanceDashboardContent() {
 
   const sortedAdmins = [...administrations].sort((a, b) => b.name.localeCompare(a.name))
   const currentAdmin = sortedAdmins[0]?.name || '2025-2026'
-
-  // Only current administration financial documents for dashboard summary
   const currentAdminDocs = financialDocs.filter(d => d.administration === currentAdmin)
+  const myUploads = currentAdminDocs.filter(d => d.uploadedBy === user.id).length
   const totalDocs = currentAdminDocs.filter(d => !d.is_archived).length
-  const budgetReports = currentAdminDocs.filter(d => d.category === 'Budgets').length
-  const expenseRecords = currentAdminDocs.filter(d => d.category === 'Financial Records').length
+  const archivedDocs = currentAdminDocs.filter(d => d.is_archived).length
 
-  const categoryData = [
-    { name: 'Budgets', value: budgetReports },
-    { name: 'Financial Records', value: expenseRecords },
-    { name: 'Reports', value: currentAdminDocs.filter(d => d.category === 'Reports').length },
-  ]
+  const categoryData = FINANCE_CATEGORIES.map(c => ({
+    name: c,
+    value: currentAdminDocs.filter(d => d.category === c).length,
+  }))
 
-  const recentDocs = currentAdminDocs.filter(d => !d.is_archived).slice(0, 5)
+  const recentDocs = [...currentAdminDocs]
+    .filter(d => !d.is_archived)
+    .sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime())
+    .slice(0, 5)
 
   return (
-    <DashboardLayout tabs={tabs} activeTab={tab === 'documents' ? 'Documents' : tab === 'archive' ? 'Archive' : 'Dashboard'}>
+    <DashboardLayout
+      tabs={tabs}
+      activeTab={tab === 'documents' ? 'Documents' : tab === 'archive' ? 'Archive' : 'Dashboard'}
+      onNewUpload={tab === 'documents' ? () => { setUploadPrefill(null); setTargetFolderId(null); setUploadModalOpen(true) } : undefined}
+    >
       {tab === 'dashboard' && (
-        <div className="space-y-8">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
-              <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Finance Dashboard</h1>
-              <p className="text-xs text-gray-500 mt-1">Showing statistics for active administration: <span className="font-semibold text-primary">{currentAdmin}</span></p>
+        <div className="px-6 pt-5 pb-8 space-y-6">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              Finance Minister
             </div>
+            <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white mt-0.5">
+              Welcome back, {user.fullName.split(' ')[0]}
+            </h1>
+            <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1">
+              Manage budgets, financial records, and reports for the{' '}
+              <span className="font-semibold text-gray-700 dark:text-gray-300">{currentAdmin}</span> administration.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <Card title="Financial Documents" value={totalDocs} icon={<FileText size={32} />} />
-            <Card title="Budget Reports" value={budgetReports} icon={<DollarSign size={32} />} />
-            <Card title="Expense Records" value={expenseRecords} icon={<DollarSign size={32} />} />
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <Card title="My uploads" value={myUploads} icon={<Upload size={22} />} accent="emerald" />
+            <Card title="Active documents" value={totalDocs} icon={<DollarSign size={22} />} accent="blue" />
+            <Card title="Archived" value={archivedDocs} icon={<Archive size={22} />} accent="amber" />
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Financial Documents by Category</h2>
+          <div className="bg-white dark:bg-white/[0.02] ring-1 ring-border-subtle dark:ring-white/5 shadow-soft rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Distribution
+                </div>
+                <h2 className="text-base font-bold tracking-tight text-gray-900 dark:text-white mt-0.5">
+                  Documents per category
+                </h2>
+              </div>
+              <Eyebrow><Activity size={11} /> {currentAdmin}</Eyebrow>
+            </div>
             <BarChart data={categoryData} />
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Recent Financial Documents</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b dark:border-gray-700">
-                    <th className="text-left py-3 px-4 text-gray-900 dark:text-white">Title</th>
-                    <th className="text-left py-3 px-4 text-gray-900 dark:text-white">Category</th>
-                    <th className="text-left py-3 px-4 text-gray-900 dark:text-white">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentDocs.map((doc) => (
-                    <tr key={doc.id} className="border-b dark:border-gray-700">
-                      <td className="py-3 px-4 text-gray-900 dark:text-white">{doc.title}</td>
-                      <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{doc.category}</td>
-                      <td className="py-3 px-4 text-gray-600 dark:text-gray-400">
-                        {new Date(doc.uploadDate).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="bg-white dark:bg-white/[0.02] ring-1 ring-border-subtle dark:ring-white/5 shadow-soft rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-base font-bold tracking-tight text-gray-900 dark:text-white">Recent documents</h2>
+              <button
+                onClick={() => router.push('/dashboard/finance?tab=documents')}
+                className="text-[12px] font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                View all →
+              </button>
             </div>
+            {recentDocs.length === 0 ? (
+              <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No documents yet.</p>
+            ) : (
+              <ul className="divide-y divide-border-subtle dark:divide-white/5">
+                {recentDocs.map(d => (
+                  <li
+                    key={d.id}
+                    onClick={() => handleView(d)}
+                    className="group cursor-pointer flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.025] transition-colors"
+                  >
+                    <FileTypeTile fileType={d.fileType} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-[13px] text-gray-900 dark:text-white">{d.title}</p>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        {d.category} · {new Date(d.uploadDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       )}
 
       {tab === 'documents' && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Financial Documents</h1>
-            <Button
-              onClick={() => {
-                setUploadPrefill(null)
-                setTargetFolderId(null)
-                setUploadModalOpen(true)
-              }}
-            >
-              <Upload size={20} className="inline mr-2" />
-              Upload Document
-            </Button>
-          </div>
-
+        <div className="px-6 pt-5 pb-8">
           <FolderExplorer
             documents={documents}
+            users={users}
             role={user.role}
             onView={handleView}
             onDownload={handleDownload}
@@ -276,10 +282,10 @@ function FinanceDashboardContent() {
       )}
 
       {tab === 'archive' && (
-        <div className="space-y-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Financial Archive (Read Only)</h1>
+        <div className="px-6 pt-5 pb-8">
           <FolderExplorer
             documents={documents}
+            users={users}
             role={user.role}
             isArchive={true}
             onView={handleView}
@@ -291,66 +297,74 @@ function FinanceDashboardContent() {
 
       <UploadModal
         isOpen={uploadModalOpen}
-        onClose={() => {
-          setUploadModalOpen(false)
-          setUploadPrefill(null)
-          setTargetFolderId(null)
-        }}
+        onClose={() => { setUploadModalOpen(false); setUploadPrefill(null); setTargetFolderId(null) }}
         onUpload={handleUpload}
+        role={user.role}
         allowedCategories={['Budgets', 'Financial Records', 'Reports']}
-        prefill={uploadPrefill}
+        prefill={uploadPrefill ? { ...uploadPrefill, folderId: targetFolderId } : null}
       />
 
       <DocumentViewerModal
         isOpen={viewModalOpen}
         onClose={() => setViewModalOpen(false)}
         document={selectedDoc}
+        uploaderName={selectedDoc ? uploaderNames[selectedDoc.uploadedBy] : undefined}
       />
 
-      <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Document">
+      <Modal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        eyebrow="Document"
+        title="Edit details"
+        width={520}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setEditModalOpen(false)}>Cancel</Button>
+            <Button variant="primary" onClick={handleEditSave}>Save changes</Button>
+          </>
+        }
+      >
         <div className="space-y-4">
+          <Input
+            label="Title"
+            value={editForm.title}
+            onChange={e => setEditForm({ ...editForm, title: e.target.value })}
+          />
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Title</label>
-            <input
-              type="text"
-              value={editForm.title}
-              onChange={e => setEditForm({ ...editForm, title: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Category</label>
+            <span className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+              Category
+            </span>
             <select
               value={editForm.category}
               onChange={e => setEditForm({ ...editForm, category: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              className="w-full text-[13px] px-3 py-2 rounded-lg ring-1 ring-border-subtle dark:ring-white/10 bg-white dark:bg-white/[0.02] text-gray-900 dark:text-white outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:focus-visible:ring-white/40 transition-shadow"
             >
               {FINANCE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Event</label>
+            <span className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+              Event
+            </span>
             <select
               value={editForm.event}
               onChange={e => setEditForm({ ...editForm, event: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              className="w-full text-[13px] px-3 py-2 rounded-lg ring-1 ring-border-subtle dark:ring-white/10 bg-white dark:bg-white/[0.02] text-gray-900 dark:text-white outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:focus-visible:ring-white/40 transition-shadow"
             >
               {events.map(evt => <option key={evt.id} value={evt.name}>{evt.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Administration</label>
+            <span className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+              Administration
+            </span>
             <select
               value={editForm.administration}
               onChange={e => setEditForm({ ...editForm, administration: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              className="w-full text-[13px] px-3 py-2 rounded-lg ring-1 ring-border-subtle dark:ring-white/10 bg-white dark:bg-white/[0.02] text-gray-900 dark:text-white outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:focus-visible:ring-white/40 transition-shadow"
             >
               {administrations.map(adm => <option key={adm.id} value={adm.name}>{adm.name}</option>)}
             </select>
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={handleEditSave}>Save Changes</Button>
-            <Button onClick={() => setEditModalOpen(false)} variant="secondary">Cancel</Button>
           </div>
         </div>
       </Modal>
