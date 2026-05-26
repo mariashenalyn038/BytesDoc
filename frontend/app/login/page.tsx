@@ -15,6 +15,7 @@ import {
   Activity,
 } from 'lucide-react'
 import Button from '@/components/ui/Button'
+import Input from '@/components/ui/Input'
 import { useAuthStore } from '@/lib/stores/authStore'
 import { useActivityStore } from '@/lib/stores/activityStore'
 

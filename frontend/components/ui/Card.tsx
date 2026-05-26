@@ -43,8 +43,8 @@ const ACCENTS: Record<CardAccent, { iconBg: string; iconColor: string; sparkColo
 
 function Sparkline({ values, className }: { values: number[]; className?: string }) {
   if (values.length < 2) return null
-  const w = 80
-  const h = 24
+  const w = 72
+  const h = 22
   const max = Math.max(...values)
   const min = Math.min(...values)
   const range = max - min || 1
@@ -74,29 +74,34 @@ export default function Card({ title, value, icon, delta, deltaLabel, sparkline,
     : 'text-red-600 dark:text-red-400'
   const DeltaIcon = isPositive ? ArrowUpRight : ArrowDownRight
   const cfg = ACCENTS[accent]
+  const hasSpark = !!sparkline && sparkline.length > 1
 
   return (
-    <div className="group bg-white dark:bg-gray-800 p-6 rounded-xl shadow-soft border border-border-subtle dark:border-white/5 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift">
-      <div className="flex items-start justify-between gap-4">
+    <div className="group flex h-full min-h-[148px] flex-col bg-white dark:bg-white/[0.02] ring-1 ring-border-subtle dark:ring-white/5 shadow-soft rounded-xl p-4 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-lift">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">{title}</p>
+        {icon && (
+          <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-transform duration-200 group-hover:scale-105 ${cfg.iconBg} ${cfg.iconColor}`}>
+            {icon}
+          </div>
+        )}
+      </div>
+
+      <p className="mt-3 text-3xl font-bold text-gray-900 dark:text-white tabular-nums leading-none">{value}</p>
+
+      <div className="mt-auto flex h-6 items-center justify-between pt-3">
         <div className="min-w-0">
-          <p className="text-sm text-gray-600 dark:text-gray-400">{title}</p>
-          <p className="text-3xl font-bold text-gray-900 dark:text-white mt-2 tabular-nums">{value}</p>
-          {hasDelta && (
-            <div className={`mt-2 inline-flex items-center gap-1 text-xs font-medium ${deltaColor}`}>
-              <DeltaIcon size={14} />
-              <span>{isPositive ? '+' : ''}{delta}</span>
-              {deltaLabel && <span className="text-gray-500 dark:text-gray-500 font-normal ml-1">{deltaLabel}</span>}
+          {hasDelta ? (
+            <div className={`inline-flex items-center gap-1 text-[11px] font-medium ${deltaColor}`}>
+              <DeltaIcon size={12} />
+              <span className="tabular-nums">{isPositive ? '+' : ''}{delta}</span>
+              {deltaLabel && <span className="text-gray-500 dark:text-gray-500 font-normal ml-1 truncate">{deltaLabel}</span>}
             </div>
+          ) : (
+            <span className="text-[11px] text-gray-400 dark:text-gray-600">—</span>
           )}
         </div>
-        <div className="flex flex-col items-end gap-3 shrink-0">
-          {icon && (
-            <div className={`flex h-11 w-11 items-center justify-center rounded-xl transition-transform duration-200 group-hover:scale-105 ${cfg.iconBg} ${cfg.iconColor}`}>
-              {icon}
-            </div>
-          )}
-          {sparkline && sparkline.length > 1 && <Sparkline values={sparkline} className={cfg.sparkColor} />}
-        </div>
+        {hasSpark && <Sparkline values={sparkline!} className={cfg.sparkColor} />}
       </div>
     </div>
   )

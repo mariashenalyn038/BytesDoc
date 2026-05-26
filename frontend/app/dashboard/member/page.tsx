@@ -10,11 +10,12 @@ import { useUserStore } from '@/lib/stores/userStore'
 import { useActivityStore } from '@/lib/stores/activityStore'
 import DashboardLayout from '@/components/layout/DashboardLayout'
 import Card from '@/components/ui/Card'
+import Eyebrow from '@/components/ui/Eyebrow'
 import BarChart from '@/components/charts/BarChart'
-import DocumentTable from '@/components/dashboard/DocumentTable'
-import ArchiveList from '@/components/dashboard/ArchiveList'
+import FolderExplorer from '@/components/dashboard/FolderExplorer'
 import DocumentViewerModal from '@/components/dashboard/DocumentViewerModal'
-import { FileText, Archive } from 'lucide-react'
+import { FileTypeTile } from '@/components/ui/FileTypeIcon'
+import { FileText, Archive, Activity } from 'lucide-react'
 import { Document } from '@/types'
 import { useCategoryStore } from '@/lib/stores/categoryStore'
 import { toast } from '@/lib/stores/toastStore'
@@ -31,7 +32,7 @@ function MemberDashboardContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tab = searchParams.get('tab') || 'dashboard'
-  
+
   const { user, isAuthenticated, hasHydrated } = useAuthStore()
   const { documents } = useDocumentStore()
   const { users } = useUserStore()
@@ -40,7 +41,6 @@ function MemberDashboardContent() {
 
   useEffect(() => { ensureCategoriesLoaded() }, [ensureCategoriesLoaded])
 
-  const [searchTerm, setSearchTerm] = useState('')
   const [viewModalOpen, setViewModalOpen] = useState(false)
   const [selectedDoc, setSelectedDoc] = useState<Document | null>(null)
 
@@ -64,14 +64,6 @@ function MemberDashboardContent() {
     return acc
   }, {} as Record<string, string>)
 
-  const filteredDocs = documents.filter(d => {
-    if (tab === 'documents') {
-      const matchesSearch = d.title.toLowerCase().includes(searchTerm.toLowerCase())
-      return !d.is_archived && matchesSearch
-    }
-    return d.is_archived
-  })
-
   const handleView = (doc: Document) => {
     setSelectedDoc(doc)
     setViewModalOpen(true)
@@ -85,7 +77,10 @@ function MemberDashboardContent() {
 
   const totalDocs = documents.filter(d => !d.is_archived).length
   const archivedDocs = documents.filter(d => d.is_archived).length
-  const recentDocs = documents.filter(d => !d.is_archived).slice(0, 5)
+  const recentDocs = [...documents]
+    .filter(d => !d.is_archived)
+    .sort((a, b) => new Date(b.uploadDate).getTime() - new Date(a.uploadDate).getTime())
+    .slice(0, 5)
 
   const categoryData = categories.map(c => ({
     name: c.name,
@@ -95,65 +90,80 @@ function MemberDashboardContent() {
   return (
     <DashboardLayout tabs={tabs} activeTab={tab === 'documents' ? 'Documents' : tab === 'archive' ? 'Archive' : 'Dashboard'}>
       {tab === 'dashboard' && (
-        <div className="space-y-8">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Member Dashboard</h1>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card title="Accessible Documents" value={totalDocs} icon={<FileText size={32} />} />
-            <Card title="Archived Documents" value={archivedDocs} icon={<Archive size={32} />} />
+        <div className="px-6 pt-5 pb-8 space-y-6">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              Member
+            </div>
+            <h1 className="text-xl font-bold tracking-tight text-gray-900 dark:text-white mt-0.5">
+              Welcome back, {user.fullName.split(' ')[0]}
+            </h1>
+            <p className="text-[13px] text-gray-500 dark:text-gray-400 mt-1">
+              Browse the council archive and access shared documents.
+            </p>
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Documents by Category</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <Card title="Accessible documents" value={totalDocs} icon={<FileText size={22} />} accent="blue" />
+            <Card title="Archived documents" value={archivedDocs} icon={<Archive size={22} />} accent="amber" />
+          </div>
+
+          <div className="bg-white dark:bg-white/[0.02] ring-1 ring-border-subtle dark:ring-white/5 shadow-soft rounded-xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                  Distribution
+                </div>
+                <h2 className="text-base font-bold tracking-tight text-gray-900 dark:text-white mt-0.5">
+                  Documents by category
+                </h2>
+              </div>
+              <Eyebrow><Activity size={11} /> All time</Eyebrow>
+            </div>
             <BarChart data={categoryData} />
           </div>
 
-          <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow">
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-4">Recent Documents</h2>
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b dark:border-gray-700">
-                    <th className="text-left py-3 px-4 text-gray-900 dark:text-white">Title</th>
-                    <th className="text-left py-3 px-4 text-gray-900 dark:text-white">Category</th>
-                    <th className="text-left py-3 px-4 text-gray-900 dark:text-white">Date</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recentDocs.map((doc) => (
-                    <tr key={doc.id} className="border-b dark:border-gray-700">
-                      <td className="py-3 px-4 text-gray-900 dark:text-white">{doc.title}</td>
-                      <td className="py-3 px-4 text-gray-600 dark:text-gray-400">{doc.category}</td>
-                      <td className="py-3 px-4 text-gray-600 dark:text-gray-400">
-                        {new Date(doc.uploadDate).toLocaleDateString()}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <div className="bg-white dark:bg-white/[0.02] ring-1 ring-border-subtle dark:ring-white/5 shadow-soft rounded-xl p-4">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-base font-bold tracking-tight text-gray-900 dark:text-white">Recent documents</h2>
+              <button
+                onClick={() => router.push('/dashboard/member?tab=documents')}
+                className="text-[12px] font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                View all →
+              </button>
             </div>
+            {recentDocs.length === 0 ? (
+              <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">No documents yet.</p>
+            ) : (
+              <ul className="divide-y divide-border-subtle dark:divide-white/5">
+                {recentDocs.map(d => (
+                  <li
+                    key={d.id}
+                    onClick={() => handleView(d)}
+                    className="group cursor-pointer flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.025] transition-colors"
+                  >
+                    <FileTypeTile fileType={d.fileType} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-[13px] text-gray-900 dark:text-white">{d.title}</p>
+                      <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                        {d.category} · {new Date(d.uploadDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       )}
 
       {tab === 'documents' && (
-        <div className="space-y-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Documents</h1>
-
-          <input
-            type="text"
-            placeholder="Search documents..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-          />
-
-          <DocumentTable
-            documents={filteredDocs}
-            canUpload={false}
-            canEdit={() => false}
-            canDelete={() => false}
-            canArchive={false}
+        <div className="px-6 pt-5 pb-8">
+          <FolderExplorer
+            documents={documents}
+            users={users}
+            role={user.role}
             onView={handleView}
             onDownload={handleDownload}
             uploaderNames={uploaderNames}
@@ -162,10 +172,12 @@ function MemberDashboardContent() {
       )}
 
       {tab === 'archive' && (
-        <div className="space-y-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Archive</h1>
-          <ArchiveList
-            documents={filteredDocs}
+        <div className="px-6 pt-5 pb-8">
+          <FolderExplorer
+            documents={documents}
+            users={users}
+            role={user.role}
+            isArchive={true}
             onView={handleView}
             onDownload={handleDownload}
             uploaderNames={uploaderNames}
@@ -177,6 +189,7 @@ function MemberDashboardContent() {
         isOpen={viewModalOpen}
         onClose={() => setViewModalOpen(false)}
         document={selectedDoc}
+        uploaderName={selectedDoc ? uploaderNames[selectedDoc.uploadedBy] : undefined}
       />
     </DashboardLayout>
   )

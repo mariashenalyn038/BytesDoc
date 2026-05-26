@@ -18,26 +18,27 @@ import DocumentViewerModal from '@/components/dashboard/DocumentViewerModal'
 import UploadModal from '@/components/dashboard/UploadModal'
 import UserTable from '@/components/dashboard/UserTable'
 import ActivityLogTable from '@/components/dashboard/ActivityLogTable'
-import DocumentSettingsPanel from '@/components/dashboard/DocumentSettingsPanel'
 import { useAdministrationStore } from '@/lib/stores/administrationStore'
 import { useCategoryStore } from '@/lib/stores/categoryStore'
 import { useEventStore } from '@/lib/stores/eventStore'
-import { FileText, Archive, Upload, Users, Download, ChevronDown, FileCheck, CalendarClock, ArrowRight } from 'lucide-react'
+import { FileText, Archive, Upload, Users, Download, ChevronDown, FileCheck, CalendarClock, ArrowRight, Mail } from 'lucide-react'
 import { Document, User } from '@/types'
 import { apiGetDashboardStats, DashboardStats } from '@/lib/api'
 import { mockCategories } from '@/lib/mockData'
 import { toast } from '@/lib/stores/toastStore'
 import { confirmDialog } from '@/lib/stores/confirmStore'
 import FolderExplorer from '@/components/dashboard/FolderExplorer'
+import LogsTabContent from '@/components/dashboard/LogsTabContent'
+import UsersTabContent from '@/components/dashboard/UsersTabContent'
 import { useFolderStore } from '@/lib/stores/folderStore'
-import FileTypeIcon, { fileTypeMeta } from '@/components/ui/FileTypeIcon'
+import FileTypeIcon from '@/components/ui/FileTypeIcon'
 import Reveal from '@/components/ui/Reveal'
+import Input from '@/components/ui/Input'
 
 const TABS = [
   { name: 'Dashboard', href: '/dashboard/admin' },
   { name: 'Documents', href: '/dashboard/admin?tab=documents' },
   { name: 'Archive', href: '/dashboard/admin?tab=archive' },
-  { name: 'Document Settings', href: '/dashboard/admin?tab=settings' },
   { name: 'Users', href: '/dashboard/admin?tab=users' },
   { name: 'Activity Logs', href: '/dashboard/admin?tab=logs' },
 ]
@@ -183,7 +184,7 @@ function AdminDashboardContent() {
   }))
 
   // ── Handlers ────────────────────────────────────────────────────────────
-  const handleUpload = async (data: { title: string; category: string; event: string; administration: string }, file?: File | null) => {
+  const handleUpload = async (data: { title: string; category: string; event: string; administration: string; folderId?: string | null }, file?: File | null) => {
     try {
       const doc = await addDocument(file ?? null, { ...data, fileType: file?.name.endsWith('.docx') ? 'docx' : 'pdf' }, {
         title: data.title,
@@ -197,8 +198,9 @@ function AdminDashboardContent() {
         is_locked: false,
         fileType: 'pdf',
       })
-      if (targetFolderId && doc?.id) {
-        assignDocumentToFolder(doc.id, targetFolderId)
+      const resolvedFolderId = data.folderId ?? targetFolderId
+      if (resolvedFolderId && doc?.id) {
+        assignDocumentToFolder(doc.id, resolvedFolderId)
         setTargetFolderId(null)
       }
       setUploadPrefill(null)
@@ -315,14 +317,22 @@ function AdminDashboardContent() {
   })
 
   return (
-    <DashboardLayout tabs={TABS} activeTab={tabLabel(tab)}>
+    <DashboardLayout
+      tabs={TABS}
+      activeTab={tabLabel(tab)}
+      onNewUpload={tab === 'documents' ? () => {
+        setUploadPrefill(null)
+        setTargetFolderId(null)
+        setUploadModalOpen(true)
+      } : undefined}
+    >
       {/* ── DASHBOARD TAB ─────────────────────────────────────── */}
       {tab === 'dashboard' && (
-        <div className="space-y-16 sm:space-y-20">
+        <div>
           {/* ─── Hero (near full-viewport, dark gray brand) ─── */}
           <section
-            className="relative -mx-4 -mt-8 px-4 sm:px-6 lg:px-10 flex flex-col bg-gradient-to-b from-[#1a1a1a] via-[#161616] to-[#0d0d0d] text-white overflow-hidden"
-            style={{ minHeight: 'calc(100vh - 4rem)' }}
+            className="relative px-4 sm:px-6 lg:px-10 flex flex-col bg-gradient-to-b from-[#1a1a1a] via-[#161616] to-[#0d0d0d] text-white overflow-hidden"
+            style={{ minHeight: 'calc(100vh - 3.5rem)' }}
           >
             {/* Subtle dot grid */}
             <div
@@ -401,14 +411,15 @@ function AdminDashboardContent() {
             </a>
           </section>
 
+          <div className="px-6 pt-12 pb-10 space-y-12">
           {/* ─── KPI strip (scroll-reveal with stagger) ─── */}
-          <div id="stats" className="scroll-mt-24 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div id="stats" className="scroll-mt-24 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
             <Reveal delay={0}>
               <Card
                 title="Total Documents"
                 value={stats?.totalDocuments ?? documents.length}
                 icon={<FileText size={22} />}
-                accent="blue"
+                accent="slate"
               />
             </Reveal>
             <Reveal delay={80}>
@@ -416,7 +427,7 @@ function AdminDashboardContent() {
                 title="Active Documents"
                 value={stats?.activeDocuments ?? activeDocs.length}
                 icon={<FileCheck size={22} />}
-                accent="emerald"
+                accent="slate"
               />
             </Reveal>
             <Reveal delay={160}>
@@ -424,7 +435,7 @@ function AdminDashboardContent() {
                 title="Archived Documents"
                 value={stats?.archivedDocuments ?? archivedDocs.length}
                 icon={<Archive size={22} />}
-                accent="amber"
+                accent="slate"
               />
             </Reveal>
             <Reveal delay={240}>
@@ -432,7 +443,7 @@ function AdminDashboardContent() {
                 title="Recent Uploads (7d)"
                 value={stats?.recentUploads ?? 0}
                 icon={<Upload size={22} />}
-                accent="violet"
+                accent="slate"
                 sparkline={trend.length > 1 ? trend : undefined}
                 delta={recentDelta}
                 deltaLabel="vs prior period"
@@ -443,24 +454,36 @@ function AdminDashboardContent() {
           {/* ─── Charts (scroll-reveal) ─── */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Reveal delay={0}>
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-soft border border-border-subtle dark:border-white/5">
-                <div className="flex items-center justify-between mb-5">
-                  <h2 className="text-base font-bold text-gray-900 dark:text-white">Documents per Category</h2>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/[0.06] px-2 py-1 rounded-full">
-                    <FileText size={11} />
-                    All time
+              <div className="bg-white dark:bg-white/[0.02] ring-1 ring-border-subtle dark:ring-white/5 shadow-soft rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      Distribution
+                    </div>
+                    <h2 className="text-base font-bold tracking-tight text-gray-900 dark:text-white mt-0.5">
+                      Documents per category
+                    </h2>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/[0.06] px-2 py-1 rounded-full">
+                    <FileText size={11} /> All time
                   </span>
                 </div>
                 <BarChart data={stats?.docsPerCategory ?? []} />
               </div>
             </Reveal>
             <Reveal delay={120}>
-              <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-soft border border-border-subtle dark:border-white/5">
-                <div className="flex items-center justify-between mb-5">
-                  <h2 className="text-base font-bold text-gray-900 dark:text-white">Uploads over Time</h2>
-                  <span className="inline-flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/[0.06] px-2 py-1 rounded-full">
-                    <CalendarClock size={11} />
-                    Last 6 months
+              <div className="bg-white dark:bg-white/[0.02] ring-1 ring-border-subtle dark:ring-white/5 shadow-soft rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <div className="text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+                      Trend
+                    </div>
+                    <h2 className="text-base font-bold tracking-tight text-gray-900 dark:text-white mt-0.5">
+                      Uploads over time
+                    </h2>
+                  </div>
+                  <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-white/[0.06] px-2 py-1 rounded-full">
+                    <CalendarClock size={11} /> Last 6 months
                   </span>
                 </div>
                 <LineChart data={stats?.uploadsOverTime ?? []} />
@@ -470,12 +493,12 @@ function AdminDashboardContent() {
 
           {/* ─── Recent documents (scroll-reveal) ─── */}
           <Reveal>
-            <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-soft border border-border-subtle dark:border-white/5">
+            <div className="bg-white dark:bg-white/[0.02] ring-1 ring-border-subtle dark:ring-white/5 shadow-soft rounded-xl p-4">
               <div className="flex items-center justify-between mb-2">
-                <h2 className="text-base font-bold text-gray-900 dark:text-white">Recent Documents</h2>
+                <h2 className="text-base font-bold tracking-tight text-gray-900 dark:text-white">Recent documents</h2>
                 <button
                   onClick={() => router.push('/dashboard/admin?tab=documents')}
-                  className="text-xs font-semibold text-gray-600 dark:text-gray-400 hover:text-primary dark:hover:text-white transition"
+                  className="text-[12px] font-semibold text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
                 >
                   View all →
                 </button>
@@ -488,35 +511,25 @@ function AdminDashboardContent() {
                 <ul className="divide-y divide-border-subtle dark:divide-white/5">
                   {recentDocs.map(d => {
                     const doc = documents.find(x => x.id === d.id)
-                    const meta = fileTypeMeta(doc?.fileType ?? 'pdf')
                     return (
                       <li
                         key={d.id}
-                        className="group flex items-center gap-4 py-3 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.02] transition-colors"
+                        className="group flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-gray-50 dark:hover:bg-white/[0.025] transition-colors"
                       >
-                        <div
-                          className="w-1 h-10 rounded-full shrink-0"
-                          style={{ backgroundColor: meta.color }}
-                          aria-hidden="true"
-                        />
                         <FileTypeIcon fileType={doc?.fileType ?? 'pdf'} size={22} />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate font-medium text-sm text-gray-900 dark:text-white">{d.title}</p>
-                          <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1.5 flex-wrap">
-                            <span>{d.category}</span>
-                            <span aria-hidden="true">·</span>
-                            <span>{d.uploaderName}</span>
-                            <span aria-hidden="true">·</span>
-                            <span className="tabular-nums">{new Date(d.uploadDate).toLocaleDateString()}</span>
+                          <p className="truncate font-medium text-[13px] text-gray-900 dark:text-white">{d.title}</p>
+                          <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-0.5">
+                            {d.category} · {d.uploaderName} · {new Date(d.uploadDate).toLocaleDateString()}
                           </p>
                         </div>
                         <button
                           onClick={() => doc && handleDownload(doc)}
-                          className="p-2 rounded-md text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-500/10 opacity-60 group-hover:opacity-100 transition"
+                          className="p-1.5 rounded-md text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-white/5 opacity-60 group-hover:opacity-100 transition"
                           title="Download"
                           aria-label={`Download ${d.title}`}
                         >
-                          <Download size={18} />
+                          <Download size={16} />
                         </button>
                       </li>
                     )
@@ -525,28 +538,16 @@ function AdminDashboardContent() {
               )}
             </div>
           </Reveal>
+          </div>
         </div>
       )}
 
       {/* ── DOCUMENTS TAB ─────────────────────────────────────── */}
       {tab === 'documents' && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Documents Explorer</h1>
-            <Button
-              onClick={() => {
-                setUploadPrefill(null)
-                setTargetFolderId(null)
-                setUploadModalOpen(true)
-              }}
-            >
-              <Upload size={20} className="inline mr-2" />
-              Upload Document
-            </Button>
-          </div>
-
+        <div className="px-6 pt-5 pb-8">
           <FolderExplorer
             documents={documents}
+            users={users}
             role={user.role}
             onView={handleView}
             onDownload={handleDownload}
@@ -565,10 +566,10 @@ function AdminDashboardContent() {
 
       {/* ── ARCHIVE TAB ──────────────────────────────────────── */}
       {tab === 'archive' && (
-        <div className="space-y-6">
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Archive Explorer</h1>
+        <div className="px-6 pt-5 pb-8">
           <FolderExplorer
             documents={documents}
+            users={users}
             role={user.role}
             isArchive={true}
             onView={handleView}
@@ -578,37 +579,17 @@ function AdminDashboardContent() {
         </div>
       )}
 
-      {/* ── DOCUMENT SETTINGS TAB ────────────────────────────── */}
-      {tab === 'settings' && <DocumentSettingsPanel />}
-
       {/* ── USERS TAB ─────────────────────────────────────────── */}
       {tab === 'users' && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">User Management</h1>
-            <Button onClick={() => setInviteModalOpen(true)}>
-              <Users size={20} className="inline mr-2" />
-              Invite User
-            </Button>
-          </div>
-          <UserTable
-            users={users}
-            onRoleChange={(id, role) => updateUserRole(id, role)}
-          />
+        <div className="px-6 pt-5 pb-8">
+          <UsersTabContent users={users} onInvite={() => setInviteModalOpen(true)} />
         </div>
       )}
 
       {/* ── ACTIVITY LOGS TAB ────────────────────────────────── */}
       {tab === 'logs' && (
-        <div className="space-y-6">
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 dark:text-white">Activity Logs</h1>
-            <Button onClick={handleExportLogs} variant="secondary">
-              <Download size={20} className="inline mr-2" />
-              Export CSV
-            </Button>
-          </div>
-          <ActivityLogTable
+        <div className="px-6 pt-5 pb-8">
+          <LogsTabContent
             logs={displayLogs}
             users={users}
             documents={documents}
@@ -616,6 +597,7 @@ function AdminDashboardContent() {
             filterAction={filterAction}
             onFilterUserChange={setFilterUser}
             onFilterActionChange={setFilterAction}
+            onExport={handleExportLogs}
           />
         </div>
       )}
@@ -629,8 +611,9 @@ function AdminDashboardContent() {
           setTargetFolderId(null)
         }}
         onUpload={handleUpload}
+        role={user.role}
         allowedCategories={categories.map(c => c.name)}
-        prefill={uploadPrefill}
+        prefill={uploadPrefill ? { ...uploadPrefill, folderId: targetFolderId } : null}
       />
 
       <DocumentViewerModal
@@ -644,100 +627,116 @@ function AdminDashboardContent() {
       />
 
       {/* Edit Modal */}
-      <Modal isOpen={editModalOpen} onClose={() => setEditModalOpen(false)} title="Edit Document">
+      <Modal
+        isOpen={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        eyebrow="Document"
+        title="Edit details"
+        width={520}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setEditModalOpen(false)}>Cancel</Button>
+            <Button variant="primary" onClick={handleEditSave}>Save changes</Button>
+          </>
+        }
+      >
         <div className="space-y-4">
+          <Input
+            label="Title"
+            value={editForm.title}
+            onChange={e => setEditForm({ ...editForm, title: e.target.value })}
+          />
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Title</label>
-            <input
-              type="text"
-              value={editForm.title}
-              onChange={e => setEditForm({ ...editForm, title: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Category</label>
+            <span className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+              Category
+            </span>
             <select
               value={editForm.category}
               onChange={e => setEditForm({ ...editForm, category: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              className="w-full text-[13px] px-3 py-2 rounded-lg ring-1 ring-border-subtle dark:ring-white/10 bg-white dark:bg-white/[0.02] text-gray-900 dark:text-white outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:focus-visible:ring-white/40 transition-shadow"
             >
               {categories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Event</label>
+            <span className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+              Event
+            </span>
             <select
               value={editForm.event}
               onChange={e => setEditForm({ ...editForm, event: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              className="w-full text-[13px] px-3 py-2 rounded-lg ring-1 ring-border-subtle dark:ring-white/10 bg-white dark:bg-white/[0.02] text-gray-900 dark:text-white outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:focus-visible:ring-white/40 transition-shadow"
             >
               {events.map(ev => <option key={ev.id} value={ev.name}>{ev.name}</option>)}
             </select>
           </div>
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Administration</label>
+            <span className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+              Administration
+            </span>
             <select
               value={editForm.administration}
               onChange={e => setEditForm({ ...editForm, administration: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              className="w-full text-[13px] px-3 py-2 rounded-lg ring-1 ring-border-subtle dark:ring-white/10 bg-white dark:bg-white/[0.02] text-gray-900 dark:text-white outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:focus-visible:ring-white/40 transition-shadow"
             >
               {administrations.map(a => <option key={a.id} value={a.name}>{a.name}</option>)}
             </select>
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={handleEditSave}>Save Changes</Button>
-            <Button onClick={() => setEditModalOpen(false)} variant="secondary">Cancel</Button>
           </div>
         </div>
       </Modal>
 
       {/* Invite User Modal */}
-      <Modal isOpen={inviteModalOpen} onClose={() => setInviteModalOpen(false)} title="Invite New User">
+      <Modal
+        isOpen={inviteModalOpen}
+        onClose={() => setInviteModalOpen(false)}
+        eyebrow="Membership"
+        title="Invite a new member"
+        width={500}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setInviteModalOpen(false)} disabled={isInviting}>
+              Cancel
+            </Button>
+            <Button variant="primary" icon={Users} onClick={handleInviteUser} isLoading={isInviting}>
+              {isInviting ? 'Sending…' : 'Send invite'}
+            </Button>
+          </>
+        }
+      >
         <div className="space-y-4">
-          <p className="text-sm text-gray-500 dark:text-gray-400">
+          <p className="text-[12px] text-gray-500 dark:text-gray-400">
             {usingMock
               ? 'Demo mode: this adds the user to local state only. No email is sent.'
               : 'An invite email will be sent to this address. The recipient sets their password from the link, then logs in here.'}
           </p>
+          <Input
+            type="email"
+            label="Email"
+            icon={Mail}
+            value={inviteForm.email}
+            onChange={e => setInviteForm({ ...inviteForm, email: e.target.value })}
+            placeholder="member@msu.in"
+          />
+          <Input
+            label="Full name"
+            value={inviteForm.fullName}
+            onChange={e => setInviteForm({ ...inviteForm, fullName: e.target.value })}
+            placeholder="Juan dela Cruz"
+          />
           <div>
-            <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Email</label>
-            <input
-              type="email"
-              value={inviteForm.email}
-              onChange={e => setInviteForm({ ...inviteForm, email: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Full Name</label>
-            <input
-              type="text"
-              value={inviteForm.fullName}
-              onChange={e => setInviteForm({ ...inviteForm, fullName: e.target.value })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1 text-gray-900 dark:text-white">Role</label>
+            <span className="block text-[11px] font-semibold uppercase tracking-wider text-gray-500 dark:text-gray-400 mb-1">
+              Role
+            </span>
             <select
               value={inviteForm.role}
               onChange={e => setInviteForm({ ...inviteForm, role: e.target.value as User['role'] })}
-              className="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg dark:bg-gray-700 dark:text-white"
+              className="w-full text-[13px] px-3 py-2 rounded-lg ring-1 ring-border-subtle dark:ring-white/10 bg-white dark:bg-white/[0.02] text-gray-900 dark:text-white outline-none focus-visible:ring-2 focus-visible:ring-primary/40 dark:focus-visible:ring-white/40 transition-shadow"
             >
               <option value="chief_minister">Chief Minister</option>
               <option value="secretary">Secretary</option>
               <option value="finance_minister">Finance Minister</option>
               <option value="member">Member</option>
             </select>
-          </div>
-          <div className="flex gap-2">
-            <Button onClick={handleInviteUser} isLoading={isInviting}>
-              {isInviting ? 'Sending...' : 'Send Invite'}
-            </Button>
-            <Button onClick={() => setInviteModalOpen(false)} variant="secondary" disabled={isInviting}>
-              Cancel
-            </Button>
           </div>
         </div>
       </Modal>
@@ -752,7 +751,6 @@ function tabLabel(tab: string) {
     dashboard: 'Dashboard',
     documents: 'Documents',
     archive: 'Archive',
-    settings: 'Document Settings',
     users: 'Users',
     logs: 'Activity Logs',
   }
