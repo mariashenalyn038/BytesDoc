@@ -5,6 +5,7 @@ export interface User {
   email: string
   fullName: string
   role: Role
+  status: 'active' | 'pending'
   createdAt: string
 }
 
