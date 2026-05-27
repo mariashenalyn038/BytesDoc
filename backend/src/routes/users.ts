@@ -196,7 +196,7 @@ router.patch('/:id', requireAuth, requireRole('chief_minister'), async (req, res
       .from('users')
       .update({ name })
       .eq('id', req.params.id)
-      .select('id, email, name, role:roles(role_name), created_at')
+      .select('id, email, name, role:roles(role_name), created_at, status')
       .single<ProfileRow>()
 
     if (error || !data) {
@@ -236,7 +236,7 @@ router.put('/:id/role', requireAuth, requireRole('chief_minister'), async (req: 
       .from('users')
       .update({ role_id: roleRow.id })
       .eq('id', req.params.id)
-      .select('id, email, name, role:roles(role_name), created_at')
+      .select('id, email, name, role:roles(role_name), created_at, status')
       .single<ProfileRow>()
 
     if (error || !data) {

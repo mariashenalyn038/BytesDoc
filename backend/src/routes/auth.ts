@@ -1,9 +1,18 @@
 import { Router } from 'express'
+import rateLimit from 'express-rate-limit'
 import { supabase, supabasePublic } from '../config/supabase'
 import { requireAuth, AuthedRequest } from '../middleware/auth'
 import { Role } from '../types'
 
 const router = Router()
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 10,
+  message: { error: 'Too many attempts, please try again later' },
+  standardHeaders: true,
+  legacyHeaders: false,
+})
 
 interface ProfileRow {
   id: string
@@ -11,6 +20,7 @@ interface ProfileRow {
   name: string
   role: { role_name: Role }
   created_at: string
+  status: string
 }
 
 function toUser(p: ProfileRow) {
@@ -20,10 +30,11 @@ function toUser(p: ProfileRow) {
     fullName: p.name,
     role: p.role.role_name,
     createdAt: p.created_at,
+    status: p.status ?? 'active',
   }
 }
 
-router.post('/login', async (req, res, next) => {
+router.post('/login', authLimiter, async (req, res, next) => {
   try {
     const { email, password } = req.body ?? {}
     if (!email || !password) {
@@ -37,12 +48,19 @@ router.post('/login', async (req, res, next) => {
 
     const { data: profile, error: profileErr } = await supabase
       .from('users')
-      .select('id, email, name, role:roles(role_name), created_at')
+      .select('id, email, name, role:roles(role_name), created_at, status')
       .eq('id', data.user.id)
       .single<ProfileRow>()
 
     if (profileErr || !profile) {
       return res.status(403).json({ error: 'user profile not found' })
+    }
+
+    if (profile.status === 'pending') {
+      return res.status(403).json({ error: 'Your account is pending approval by an administrator' })
+    }
+    if (profile.status === 'rejected') {
+      return res.status(403).json({ error: 'Your account has been rejected' })
     }
 
     supabase
@@ -122,6 +140,72 @@ router.patch('/me', requireAuth, async (req: AuthedRequest, res, next) => {
       return res.status(500).json({ error: error?.message ?? 'update failed' })
     }
     res.json(toUser(data))
+  } catch (err) {
+    next(err)
+  }
+})
+
+router.post('/register', authLimiter, async (req, res, next) => {
+  try {
+    const { email, password, name } = req.body ?? {}
+    if (!email || !password || !name) {
+      return res.status(400).json({ error: 'name, email and password are required' })
+    }
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ error: 'invalid email address' })
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ error: 'password must be at least 8 characters' })
+    }
+    if (name.trim().length < 2) {
+      return res.status(400).json({ error: 'name must be at least 2 characters' })
+    }
+
+    // Create auth user
+    const { data: authData, error: authErr } = await supabase.auth.admin.createUser({
+      email,
+      password,
+      email_confirm: true,
+    })
+
+    if (authErr || !authData.user) {
+      const msg = authErr?.message ?? 'registration failed'
+      if (msg.toLowerCase().includes('already')) {
+        return res.status(409).json({ error: 'an account with this email already exists' })
+      }
+      return res.status(500).json({ error: msg })
+    }
+
+    // Resolve member role id
+    const { data: roleRow, error: roleErr } = await supabase
+      .from('roles')
+      .select('id')
+      .eq('role_name', 'member')
+      .single<{ id: number }>()
+
+    if (roleErr || !roleRow) {
+      await supabase.auth.admin.deleteUser(authData.user.id).catch(() => {})
+      return res.status(500).json({ error: 'could not resolve role' })
+    }
+
+    // Insert profile row with pending status
+    const { error: insertErr } = await supabase
+      .from('users')
+      .insert({
+        id: authData.user.id,
+        email,
+        name: name.trim(),
+        role_id: roleRow.id,
+        status: 'pending',
+      })
+
+    if (insertErr) {
+      await supabase.auth.admin.deleteUser(authData.user.id).catch(() => {})
+      return res.status(500).json({ error: insertErr.message })
+    }
+
+    res.status(201).json({ ok: true, message: 'Registration successful. Your account is pending approval.' })
   } catch (err) {
     next(err)
   }
