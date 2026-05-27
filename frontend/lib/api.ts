@@ -125,6 +125,9 @@ async function apiFetch<T>(
     throw new Error(message)
   }
 
+  // 204 No Content — nothing to parse
+  if (res.status === 204) return undefined as unknown as T
+
   // For CSV / blob responses
   const ct = res.headers.get('content-type') ?? ''
   if (ct.includes('text/csv') || ct.includes('application/octet-stream')) {
@@ -346,6 +349,10 @@ export async function apiUpdateUserRole(userId: string, role: import('@/types').
     method: 'PUT',
     body: JSON.stringify({ role }),
   })
+}
+
+export async function apiRemoveUser(userId: string) {
+  return apiFetch<void>(`/users/${userId}`, { method: 'DELETE' })
 }
 
 export async function apiUpdateUserName(userId: string, name: string) {

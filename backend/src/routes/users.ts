@@ -13,12 +13,15 @@ interface ProfileRow {
   created_at: string
 }
 
-function toUser(p: ProfileRow) {
+function toUser(p: ProfileRow, auth?: { email_confirmed_at: string | null } | null) {
   return {
     id: p.id,
     email: p.email,
     fullName: p.name,
     role: p.role.role_name,
+    // If we have auth metadata: confirmed = active, not confirmed = pending.
+    // Fall back to 'active' if auth lookup wasn't available.
+    status: auth ? (auth.email_confirmed_at ? 'active' : 'pending') : 'active',
     createdAt: p.created_at,
   }
 }
@@ -33,7 +36,16 @@ router.get('/', requireAuth, requireRole('chief_minister'), async (_req, res, ne
       .returns<ProfileRow[]>()
 
     if (error) return res.status(500).json({ error: error.message })
-    res.json(data.map(toUser))
+
+    // Fetch auth metadata to determine pending vs active status.
+    // invited_at is set on invite; email_confirmed_at is set when they accept.
+    const { data: authData, error: authErr } = await supabase.auth.admin.listUsers({ perPage: 1000 })
+    const authMap = new Map<string, { email_confirmed_at: string | null }>(
+      (authErr || !authData) ? [] :
+      authData.users.map(u => [u.id, { email_confirmed_at: u.email_confirmed_at ?? null }])
+    )
+
+    res.json(data.map(p => toUser(p, authMap.get(p.id))))
   } catch (err) {
     next(err)
   }
@@ -129,7 +141,7 @@ router.post('/', requireAuth, requireRole('chief_minister'), async (req, res, ne
       return res.status(500).json({ error: error?.message ?? 'profile creation failed' })
     }
 
-    res.status(201).json(toUser(data))
+    res.status(201).json({ ...toUser(data), status: 'pending' })
   } catch (err) {
     next(err)
   }
@@ -194,6 +206,38 @@ router.put('/:id/role', requireAuth, requireRole('chief_minister'), async (req: 
     }
 
     res.json(toUser(data))
+  } catch (err) {
+    next(err)
+  }
+})
+
+// DELETE /api/users/:id — remove a user (chief_minister only)
+// Deletes both the public.users profile row and the auth.users account.
+router.delete('/:id', requireAuth, requireRole('chief_minister'), async (req: AuthedRequest, res, next) => {
+  try {
+    // Prevent self-removal
+    if (req.params.id === req.user!.id) {
+      return res.status(400).json({ error: 'cannot remove yourself' })
+    }
+
+    // Delete the profile row first (FK constraints cascade or restrict as needed)
+    const { error: profileErr } = await supabase
+      .from('users')
+      .delete()
+      .eq('id', req.params.id)
+
+    if (profileErr) {
+      return res.status(500).json({ error: profileErr.message })
+    }
+
+    // Delete the auth account so the user can no longer log in
+    const { error: authErr } = await supabase.auth.admin.deleteUser(req.params.id)
+    if (authErr) {
+      // Profile is already gone — log the auth cleanup failure but don't fail the request
+      console.error('[removeUser] auth.admin.deleteUser failed:', authErr.message)
+    }
+
+    res.status(204).send()
   } catch (err) {
     next(err)
   }

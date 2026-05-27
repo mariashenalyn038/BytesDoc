@@ -10,7 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import ChartTooltip from './ChartTooltip'
+import ChartToolTip from './ChartToolTip'
 
 interface BarChartProps {
   data: { name: string; value: number }[]
@@ -19,9 +19,9 @@ interface BarChartProps {
 export default function BarChart({ data }: BarChartProps) {
   const { resolvedTheme } = useTheme()
   const isDark = resolvedTheme === 'dark'
-  const axis = isDark ? '#9ca3af' : '#6b7280'
+  const axis = isDark ? '#bcc4d2' : '#6b7280'
   const grid = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
-  const fill = isDark ? '#e5e7eb' : '#1a1a1a'
+  const fill = isDark ? '#aab1bc' : '#393939'
 
   return (
     <ResponsiveContainer width="100%" height={300}>
@@ -31,7 +31,8 @@ export default function BarChart({ data }: BarChartProps) {
         <YAxis stroke={axis} fontSize={12} tickLine={false} axisLine={{ stroke: grid }} />
         <Tooltip
           cursor={{ fill: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }}
-          content={<ChartTooltip />}
+          content={<ChartToolTip />}
+          wrapperStyle={{ pointerEvents: 'none' }}
         />
         <Bar dataKey="value" fill={fill} radius={[4, 4, 0, 0]} maxBarSize={48} />
       </RechartsBarChart>

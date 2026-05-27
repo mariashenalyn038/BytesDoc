@@ -10,7 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import ChartTooltip from './ChartTooltip'
+import ChartToolTip from './ChartToolTip'
 
 interface LineChartProps {
   data: { name: string; value: number }[]
@@ -21,7 +21,7 @@ export default function LineChart({ data }: LineChartProps) {
   const isDark = resolvedTheme === 'dark'
   const axis = isDark ? '#9ca3af' : '#6b7280'
   const grid = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
-  const stroke = isDark ? '#e5e7eb' : '#1a1a1a'
+  const stroke = isDark ? '#aab1bc' : '#393939'
 
   return (
     <ResponsiveContainer width="100%" height={300}>
@@ -31,7 +31,8 @@ export default function LineChart({ data }: LineChartProps) {
         <YAxis stroke={axis} fontSize={12} tickLine={false} axisLine={{ stroke: grid }} />
         <Tooltip
           cursor={{ stroke: grid, strokeWidth: 1 }}
-          content={<ChartTooltip />}
+          content={<ChartToolTip />}
+          wrapperStyle={{ pointerEvents: 'none' }}
         />
         <Line
           type="monotone"
