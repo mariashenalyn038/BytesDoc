@@ -10,7 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import ChartToolTip from './ChartToolTip'
+import ChartTooltip from './ChartTooltip'
 
 interface LineChartProps {
   data: { name: string; value: number }[]
@@ -31,7 +31,7 @@ export default function LineChart({ data }: LineChartProps) {
         <YAxis stroke={axis} fontSize={12} tickLine={false} axisLine={{ stroke: grid }} />
         <Tooltip
           cursor={{ stroke: grid, strokeWidth: 1 }}
-          content={<ChartToolTip />}
+          content={<ChartTooltip />}
           wrapperStyle={{ pointerEvents: 'none' }}
         />
         <Line

@@ -10,7 +10,7 @@ import {
   Tooltip,
   ResponsiveContainer,
 } from 'recharts'
-import ChartToolTip from './ChartToolTip'
+import ChartTooltip from './ChartTooltip'
 
 interface BarChartProps {
   data: { name: string; value: number }[]
@@ -31,7 +31,7 @@ export default function BarChart({ data }: BarChartProps) {
         <YAxis stroke={axis} fontSize={12} tickLine={false} axisLine={{ stroke: grid }} />
         <Tooltip
           cursor={{ fill: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }}
-          content={<ChartToolTip />}
+          content={<ChartTooltip />}
           wrapperStyle={{ pointerEvents: 'none' }}
         />
         <Bar dataKey="value" fill={fill} radius={[4, 4, 0, 0]} maxBarSize={48} />
