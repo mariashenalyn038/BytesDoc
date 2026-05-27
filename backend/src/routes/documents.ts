@@ -105,7 +105,7 @@ function canUploadCategory(role: Role, category: string): boolean {
 router.get('/', requireAuth, async (req: AuthedRequest, res, next) => {
   try {
     const { category, administration, archived, q } = req.query
-    let query = supabase.from('documents').select(DOCUMENT_SELECT).order('upload_date', { ascending: false })
+    let query = supabase.from('documents').select(DOCUMENT_SELECT).eq('is_deleted', false).order('upload_date', { ascending: false })
 
     if (typeof category === 'string') query = query.eq('category', category)
     if (typeof administration === 'string') {
@@ -134,6 +134,7 @@ router.get('/:id', requireAuth, async (req: AuthedRequest, res, next) => {
       .from('documents')
       .select(DOCUMENT_SELECT)
       .eq('id', req.params.id)
+      .eq('is_deleted', false)
       .single<DocumentRow>()
 
     if (error || !data) return res.status(404).json({ error: 'document not found' })
@@ -327,6 +328,7 @@ router.get('/:id/download', requireAuth, async (req: AuthedRequest, res, next) =
       .from('documents')
       .select(DOCUMENT_SELECT)
       .eq('id', req.params.id)
+      .eq('is_deleted', false)
       .single<DocumentRow>()
 
     if (error || !data) return res.status(404).json({ error: 'document not found' })
