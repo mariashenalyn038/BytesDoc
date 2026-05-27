@@ -21,6 +21,7 @@ import ActivityLogTable from '@/components/dashboard/ActivityLogTable'
 import { useAdministrationStore } from '@/lib/stores/administrationStore'
 import { useCategoryStore } from '@/lib/stores/categoryStore'
 import { useEventStore } from '@/lib/stores/eventStore'
+import RecycleBin from '@/components/dashboard/RecycleBin'
 import { FileText, Archive, Upload, Users, Download, ChevronDown, FileCheck, CalendarClock, ArrowRight, Mail } from 'lucide-react'
 import { Document, User } from '@/types'
 import { apiGetDashboardStats, DashboardStats } from '@/lib/api'
@@ -39,6 +40,7 @@ const TABS = [
   { name: 'Dashboard', href: '/dashboard/admin' },
   { name: 'Documents', href: '/dashboard/admin?tab=documents' },
   { name: 'Archive', href: '/dashboard/admin?tab=archive' },
+  { name: 'Recycle Bin', href: '/dashboard/admin?tab=trash' },
   { name: 'Users', href: '/dashboard/admin?tab=users' },
   { name: 'Activity Logs', href: '/dashboard/admin?tab=logs' },
 ]
@@ -59,11 +61,16 @@ function AdminDashboardContent() {
   const { user, isAuthenticated, usingMock, hasHydrated } = useAuthStore()
   const {
     documents,
+    trashedDocuments,
     loading: documentsLoading,
     fetchDocuments,
+    fetchTrash,
     addDocument,
     updateDocument,
     deleteDocument,
+    trashDocument,
+    restoreDocument,
+    permanentDeleteDocument,
     archiveDocument,
     bulkArchiveByAdministration,
     getDownloadUrl,
@@ -107,6 +114,7 @@ function AdminDashboardContent() {
     if (!user) return
     fetchDocuments()
     fetchUsers()
+    fetchTrash()
     ensureAdminsLoaded()
     ensureCategoriesLoaded()
     ensureEventsLoaded()
@@ -239,6 +247,47 @@ function AdminDashboardContent() {
       toast.success('Document updated')
     } catch (e: any) {
       toast.error('Update failed: ' + e.message)
+    }
+  }
+
+  const handleTrash = async (doc: Document) => {
+    const ok = await confirmDialog({
+      title: 'Move to recycle bin?',
+      message: `"${doc.title}" will be moved to the recycle bin. You can restore it within 30 days.`,
+      confirmLabel: 'Move to bin',
+      variant: 'danger',
+    })
+    if (!ok) return
+    try {
+      await trashDocument(doc.id)
+      toast.success('Moved to recycle bin')
+    } catch (e: any) {
+      toast.error('Failed: ' + e.message)
+    }
+  }
+
+  const handleRestore = async (doc: Document) => {
+    try {
+      await restoreDocument(doc.id)
+      toast.success('Document restored')
+    } catch (e: any) {
+      toast.error('Restore failed: ' + e.message)
+    }
+  }
+
+  const handlePermanentDelete = async (doc: Document) => {
+    const ok = await confirmDialog({
+      title: 'Permanently delete?',
+      message: `"${doc.title}" will be gone forever. This cannot be undone.`,
+      confirmLabel: 'Delete forever',
+      variant: 'danger',
+    })
+    if (!ok) return
+    try {
+      await permanentDeleteDocument(doc.id)
+      toast.success('Permanently deleted')
+    } catch (e: any) {
+      toast.error('Delete failed: ' + e.message)
     }
   }
 
@@ -552,7 +601,7 @@ function AdminDashboardContent() {
             onView={handleView}
             onDownload={handleDownload}
             onEdit={handleEditOpen}
-            onDelete={handleDelete}
+            onDelete={handleTrash}
             onArchive={handleArchive}
             uploaderNames={uploaderNames}
             onUploadRequested={(prefill, folderId) => {
@@ -560,6 +609,18 @@ function AdminDashboardContent() {
               setTargetFolderId(folderId)
               setUploadModalOpen(true)
             }}
+          />
+        </div>
+      )}
+
+      {tab === 'trash' && (
+        <div className="px-6 pt-5 pb-8">
+          <RecycleBin
+            documents={trashedDocuments}
+            uploaderNames={uploaderNames}
+            canPermanentDelete={true}
+            onRestore={handleRestore}
+            onPermanentDelete={handlePermanentDelete}
           />
         </div>
       )}
@@ -751,6 +812,7 @@ function tabLabel(tab: string) {
     dashboard: 'Dashboard',
     documents: 'Documents',
     archive: 'Archive',
+    trash: 'Recycle Bin',
     users: 'Users',
     logs: 'Activity Logs',
   }

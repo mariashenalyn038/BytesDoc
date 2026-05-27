@@ -43,7 +43,7 @@ function SecretaryDashboardContent() {
   const tab = searchParams.get('tab') || 'dashboard'
 
   const { user, isAuthenticated, hasHydrated } = useAuthStore()
-  const { documents, addDocument, updateDocument, deleteDocument } = useDocumentStore()
+  const { documents, addDocument, updateDocument, trashDocument } = useDocumentStore()
   const { users } = useUserStore()
   const { addLog } = useActivityStore()
   const { administrations, ensureLoaded: ensureAdminsLoaded } = useAdministrationStore()
@@ -127,19 +127,19 @@ function SecretaryDashboardContent() {
     toast.info('Download started: ' + doc.title)
   }
 
-  const handleDelete = async (doc: Document) => {
+  const handleTrash = async (doc: Document) => {
     const ok = await confirmDialog({
-      title: 'Delete document?',
-      message: `"${doc.title}" will be permanently deleted. This cannot be undone.`,
-      confirmLabel: 'Delete',
+      title: 'Move to recycle bin?',
+      message: `"${doc.title}" will be moved to the recycle bin. You can restore it within 30 days.`,
+      confirmLabel: 'Move to bin',
       variant: 'danger',
     })
     if (!ok) return
     try {
-      await deleteDocument(doc.id)
-      toast.success('Document deleted')
+      await trashDocument(doc.id)
+      toast.success('Moved to recycle bin')
     } catch (e: any) {
-      toast.error('Delete failed: ' + e.message)
+      toast.error('Failed: ' + e.message)
     }
   }
 
@@ -269,7 +269,7 @@ function SecretaryDashboardContent() {
             onView={handleView}
             onDownload={handleDownload}
             onEdit={handleEditOpen}
-            onDelete={handleDelete}
+            onDelete={handleTrash}
             uploaderNames={uploaderNames}
             onUploadRequested={(prefill, folderId) => {
               setUploadPrefill(prefill)
