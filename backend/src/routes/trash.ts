@@ -112,8 +112,8 @@ router.delete('/:id', requireAuth, requireRole('chief_minister'), async (req: Au
     if (getErr || !existing) return res.status(404).json({ error: 'document not found' })
     if (!existing.is_deleted) return res.status(409).json({ error: 'document must be in the recycle bin before permanent deletion' })
 
-    await deleteFile(existing.file_path).catch((e) => {
-      console.error('storage delete failed (continuing with row delete):', e.message)
+    await deleteFile(existing.file_path).catch(() => {
+      console.error('storage delete failed (continuing with row delete)')
     })
 
     const { error: delErr } = await supabase.from('documents').delete().eq('id', req.params.id)
