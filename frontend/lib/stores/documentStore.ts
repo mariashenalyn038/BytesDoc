@@ -13,16 +13,22 @@ import {
   apiUnlockDocument,
   apiBulkLock,
   apiDownloadDocument,
+  apiTrashDocument,
+  apiGetTrash,
+  apiRestoreDocument,
+  apiPermanentDeleteDocument,
   DocumentsQuery,
 } from '@/lib/api'
 import { useAuthStore } from './authStore'
 
 interface DocumentState {
   documents: Document[]
+  trashedDocuments: Document[]
   loading: boolean
   error: string | null
 
   fetchDocuments: (query?: DocumentsQuery) => Promise<void>
+  fetchTrash: () => Promise<void>
   addDocument: (
     file: File | null,
     meta: { title: string; category: string; event: string; administration: string; fileType: string },
@@ -30,6 +36,9 @@ interface DocumentState {
   ) => Promise<Document>
   updateDocument: (id: string, updates: Partial<Document>) => Promise<void>
   deleteDocument: (id: string) => Promise<void>
+  trashDocument: (id: string) => Promise<void>
+  restoreDocument: (id: string) => Promise<void>
+  permanentDeleteDocument: (id: string) => Promise<void>
   archiveDocument: (id: string) => Promise<void>
   bulkArchiveByAdministration: (administration: string) => Promise<void>
   lockDocument: (id: string) => Promise<void>
@@ -39,19 +48,20 @@ interface DocumentState {
 }
 
 export const useDocumentStore = create<DocumentState>((set, get) => ({
-  documents: mockDocuments,   // start with mock so UI isn't empty on first render
+  documents: mockDocuments,
+  trashedDocuments: [],
   loading: false,
   error: null,
 
   fetchDocuments: async (query = {}) => {
     const { usingMock } = useAuthStore.getState()
     if (usingMock) {
-      // Client-side filter of mock data
       let docs = [...mockDocuments]
       if (query.archived !== undefined) docs = docs.filter(d => d.is_archived === query.archived)
       if (query.category) docs = docs.filter(d => d.category === query.category)
       if (query.administration) docs = docs.filter(d => d.administration === query.administration)
       if (query.q) docs = docs.filter(d => d.title.toLowerCase().includes(query.q!.toLowerCase()))
+      docs = docs.filter(d => !d.is_deleted)
       set({ documents: docs })
       return
     }
@@ -65,10 +75,20 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
     }
   },
 
+  fetchTrash: async () => {
+    const { usingMock } = useAuthStore.getState()
+    if (usingMock) { set({ trashedDocuments: [] }); return }
+    try {
+      const docs = await apiGetTrash()
+      set({ trashedDocuments: docs })
+    } catch {
+      set({ trashedDocuments: [] })
+    }
+  },
+
   addDocument: async (file, meta, localFallback) => {
     const { usingMock } = useAuthStore.getState()
     if (usingMock || !file) {
-      // Mock mode — add locally
       const newDoc: Document = {
         id: `${Date.now()}`,
         ...(localFallback as Omit<Document, 'id'>),
@@ -91,7 +111,6 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
 
   updateDocument: async (id, updates) => {
     const { usingMock } = useAuthStore.getState()
-    // Optimistic update
     set(state => ({
       documents: state.documents.map(d => d.id === id ? { ...d, ...updates } : d),
     }))
@@ -103,7 +122,6 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
         documents: state.documents.map(d => d.id === id ? updated : d),
       }))
     } catch (e: any) {
-      // Roll back optimistic update on failure
       await get().fetchDocuments()
       throw e
     }
@@ -118,6 +136,57 @@ export const useDocumentStore = create<DocumentState>((set, get) => ({
       await apiDeleteDocument(id)
     } catch (e: any) {
       await get().fetchDocuments()
+      throw e
+    }
+  },
+
+  trashDocument: async (id) => {
+    const { usingMock } = useAuthStore.getState()
+    const doc = get().documents.find(d => d.id === id)
+    set(state => ({ documents: state.documents.filter(d => d.id !== id) }))
+    if (usingMock) {
+      if (doc) set(state => ({
+        trashedDocuments: [{ ...doc, is_deleted: true, deleted_at: new Date().toISOString() }, ...state.trashedDocuments],
+      }))
+      return
+    }
+    try {
+      await apiTrashDocument(id)
+      await get().fetchTrash()
+    } catch (e: any) {
+      await get().fetchDocuments()
+      throw e
+    }
+  },
+
+  restoreDocument: async (id) => {
+    const { usingMock } = useAuthStore.getState()
+    const doc = get().trashedDocuments.find(d => d.id === id)
+    set(state => ({ trashedDocuments: state.trashedDocuments.filter(d => d.id !== id) }))
+    if (usingMock) {
+      if (doc) set(state => ({
+        documents: [{ ...doc, is_deleted: false, deleted_at: null }, ...state.documents],
+      }))
+      return
+    }
+    try {
+      await apiRestoreDocument(id)
+      await get().fetchDocuments()
+      await get().fetchTrash()
+    } catch (e: any) {
+      await get().fetchTrash()
+      throw e
+    }
+  },
+
+  permanentDeleteDocument: async (id) => {
+    const { usingMock } = useAuthStore.getState()
+    set(state => ({ trashedDocuments: state.trashedDocuments.filter(d => d.id !== id) }))
+    if (usingMock) return
+    try {
+      await apiPermanentDeleteDocument(id)
+    } catch (e: any) {
+      await get().fetchTrash()
       throw e
     }
   },
