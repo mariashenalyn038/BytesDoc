@@ -61,6 +61,8 @@ export default function ActivityLogTable({
             <option value="download">Download</option>
             <option value="view">View</option>
             <option value="archive">Archive</option>
+            <option value="delete">Delete</option>
+            <option value="restore">Restore</option>
             <option value="login">Login</option>
           </select>
         </div>
@@ -74,7 +76,7 @@ export default function ActivityLogTable({
             description={
               filterUser !== 'All' || filterAction !== 'All'
                 ? 'No logs match the current filters. Try clearing them.'
-                : 'Logins, uploads, downloads, and archives will show up here.'
+                : 'Logins, uploads, downloads, archives, deletes, and restores will show up here.'
             }
           />
         </div>

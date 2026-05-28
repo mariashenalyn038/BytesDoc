@@ -26,6 +26,8 @@ const FILTER_PILLS: { label: string; value: string }[] = [
   { label: 'View', value: 'view' },
   { label: 'Download', value: 'download' },
   { label: 'Archive', value: 'archive' },
+  { label: 'Delete', value: 'delete' },
+  { label: 'Restore', value: 'restore' },
   { label: 'Login', value: 'login' },
 ]
 
@@ -34,6 +36,8 @@ const ACTION_TONE: Record<string, { label: string; cls: string }> = {
   download: { label: 'Download', cls: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10' },
   view:     { label: 'View',     cls: 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-500/10' },
   archive:  { label: 'Archive',  cls: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10' },
+  delete:   { label: 'Delete',   cls: 'text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-500/10' },
+  restore:  { label: 'Restore',  cls: 'text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-500/10' },
   lock:     { label: 'Lock',     cls: 'text-amber-600 dark:text-amber-400 bg-amber-50 dark:bg-amber-500/10' },
   unlock:   { label: 'Unlock',   cls: 'text-blue-600 dark:text-blue-400 bg-blue-50 dark:bg-blue-500/10' },
   login:    { label: 'Login',    cls: 'text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-500/10' },
@@ -151,7 +155,7 @@ export default function LogsTabContent({
             description={
               filterUser !== 'All' || filterAction !== 'All'
                 ? 'No logs match the current filters. Try clearing them.'
-                : 'Logins, uploads, downloads, and archives will show up here.'
+                : 'Logins, uploads, downloads, archives, deletes, and restores will show up here.'
             }
           />
         </div>
